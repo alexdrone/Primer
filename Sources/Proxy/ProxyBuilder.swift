@@ -33,7 +33,7 @@ public extension ProxyBuilderProtocol {
   }
 
   /// Build the target object.
-  func buildObject() -> ObjectType {
+  fileprivate func buildObject() -> ObjectType {
     var obj = createInstanceClosure()
     for (_, setValueClosure) in keypathSetValueDictionary {
       setValueClosure(&obj)
@@ -53,7 +53,7 @@ open class ProxyBuilder<T>: ProxyBuilderProtocol {
   }
 
   /// Build the target object.
-  func build() -> T {
+  open func build() -> T {
     return buildObject()
   }
 }

@@ -7,6 +7,7 @@ struct Foo {
   var number = 42
 }
 
+@available(OSX 10.15, iOS 13.0, *)
 final class ProxyTests: XCTestCase {
 
   func testImmutableProxy() {
@@ -17,7 +18,7 @@ final class ProxyTests: XCTestCase {
   }
 
   func testMutableProxy() {
-    var proxy = MutableProxy(of: Foo())
+    var proxy = ObservableMutableProxy(of: Foo())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -38,9 +39,20 @@ final class ProxyTests: XCTestCase {
     XCTAssert(object.number == 1)
   }
 
+  func testObservableMutableProxy() {
+    var proxy = ObservableMutableProxy(of: Foo())
+    let expectation = XCTestExpectation(description: "didChangeEvent")
+    let _ = proxy.didChange.sink { change in
+      if change.keyPath === \Foo.label {
+        expectation.fulfill()
+      }
+    }
+    proxy.label = "Change"
+    wait(for: [expectation], timeout: 1)
+  }
+
     static var allTests = [
         ("testImmutableProxy", testImmutableProxy),
-        ("testMutableProxy", testMutableProxy),
         ("testProxyBuilder", testProxyBuilder),
     ]
 }
