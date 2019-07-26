@@ -1,6 +1,5 @@
 import Foundation
 #if canImport(Combine)
-import SwiftUI
 import Combine
 #endif
 
@@ -28,52 +27,51 @@ public extension MutableProxyProtocol {
 @available(OSX 10.15, iOS 13.0, *)
 @dynamicMemberLookup
 @propertyWrapper
-open class ObservableMutableProxy<T>: MutableProxyProtocol, BindableObject, NSCopying {
-  /// Represent an object mutation (performed by accessing to this proxy).
-  public struct Change<T> {
-    /// The target object.
-    public let object: ObservableMutableProxy<T>
-    /// The mutated keyPath.
-    public let keyPath: AnyKeyPath
-  }
+open class Proxy<T>: MutableProxyProtocol, ObservableProxy, NSCopying {
+  // Observable internals.
+  public var willChangeSubscription: Cancellable?
+  public var didChangeSubscription: Cancellable?
+  public var willChange = PassthroughSubject<PropertyChange, Never>()
+  public var didChange = PassthroughSubject<PropertyChange, Never>()
+  /// Triggers the `willChange` and `didChange` subjects whenever this proxy setters are accessed.
+  open var signalPropertyChangeOnProxyMutation = true
 
   open var wrappedValue: T
-  /// An instance that publishes an event immediately before the object changes.
-  public var willChange = PassthroughSubject<Change<T>, Never>()
-  /// An instance that publishes an event immediately after the object changes.
-  public var didChange = PassthroughSubject<Change<T>, Never>()
 
   /// Constructs a new proxy for the object passed as argument.
   init(of object: T) {
     wrappedValue = object
+    propagateSubjectsIfNeeded()
   }
 
   /// Returns a new instance that’s a copy of the receiver.
   public func copy(with zone: NSZone? = nil) -> Any {
-    return ObservableMutableProxy(of: wrappedValue)
+    return Proxy(of: wrappedValue)
   }
 
   open func willSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
-    willChange.send(Change(object: self, keyPath: keyPath))
+    guard signalPropertyChangeOnProxyMutation else { return }
+    willChange.send(PropertyChange(object: self.wrappedValue, keyPath: keyPath))
     // Subclasses to implement this method.
   }
 
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
-    didChange.send(Change(object: self, keyPath: keyPath))
+    guard signalPropertyChangeOnProxyMutation else { return }
+    didChange.send(PropertyChange(object: self.wrappedValue, keyPath: keyPath))
     // Subclasses to implement this method.
   }
 }
 
 @available(OSX 10.15, iOS 13.0, *)
-extension ObservableMutableProxy: Equatable where T: Equatable {
+extension Proxy: Equatable where T: Equatable {
   /// Two `MutableObservableProxy` are considered equal if they are proxies for the same object.
-  public static func ==(lhs: ObservableMutableProxy<T>, rhs: ObservableMutableProxy<T>) -> Bool {
+  public static func ==(lhs: Proxy<T>, rhs: Proxy<T>) -> Bool {
     return lhs.wrappedValue == rhs.wrappedValue
   }
 }
 
 @available(OSX 10.15, iOS 13.0, *)
-extension ObservableMutableProxy: Hashable where T: Hashable {
+extension Proxy: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
     return wrappedValue.hash(into: &hasher)
@@ -81,7 +79,7 @@ extension ObservableMutableProxy: Hashable where T: Hashable {
 }
 
 @available(OSX 10.15, iOS 13.0, *)
-open class AtomicObservableMutableProxy<T>: ObservableMutableProxy<T> {
+open class AtomicProxy<T>: Proxy<T> {
   /// Low-level lock that allows waiters to block efficiently on contention.
   private var unfairLock = os_unfair_lock_s()
 

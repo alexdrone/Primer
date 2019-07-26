@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Combine)
+import Combine
+#endif
 
 public protocol ImmutableProxyProtocol {
   associatedtype ProxyType
@@ -13,12 +16,20 @@ public extension ImmutableProxyProtocol {
   }
 }
 
+@available(OSX 10.15, iOS 13.0, *)
 @dynamicMemberLookup
 @propertyWrapper
-open class ImmutableProxy<T>: ImmutableProxyProtocol {
+open class ImmutableProxy<T>: ImmutableProxyProtocol, ObservableProxy {
+  // Observable internals.
+  public var willChangeSubscription: Cancellable?
+  public var didChangeSubscription: Cancellable?
+  public var willChange = PassthroughSubject<PropertyChange, Never>()
+  public var didChange = PassthroughSubject<PropertyChange, Never>()
+
   open var wrappedValue: T
   /// Constructs a new proxy for the object passed as argument.
   init(of object: T) {
     wrappedValue = object
+    propagateSubjectsIfNeeded()
   }
 }

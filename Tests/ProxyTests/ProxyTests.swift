@@ -18,7 +18,7 @@ final class ProxyTests: XCTestCase {
   }
 
   func testMutableProxy() {
-    var proxy = ObservableMutableProxy(of: Foo())
+    var proxy = Proxy(of: Foo())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -39,11 +39,11 @@ final class ProxyTests: XCTestCase {
     XCTAssert(object.number == 1)
   }
 
-  func testObservableMutableProxy() {
-    var proxy = ObservableMutableProxy(of: Foo())
+  func testProxy() {
+    var proxy = Proxy(of: Foo())
     let expectation = XCTestExpectation(description: "didChangeEvent")
     let _ = proxy.didChange.sink { change in
-      if change.keyPath === \Foo.label {
+      if let _ = change.match(keyPath: \Foo.label) {
         expectation.fulfill()
       }
     }
