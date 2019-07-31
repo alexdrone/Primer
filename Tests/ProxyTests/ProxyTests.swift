@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import Proxy
 
 struct Foo {
@@ -9,16 +10,17 @@ struct Foo {
 
 @available(OSX 10.15, iOS 13.0, *)
 final class ProxyTests: XCTestCase {
+  var subscriber: Cancellable?
 
   func testImmutableProxy() {
-    let proxy = ImmutableProxy(of: Foo())
+    let proxy = ImmutableProxyRef(of: Foo())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
   }
 
   func testMutableProxy() {
-    var proxy = Proxy(of: Foo())
+    var proxy = ProxyRef(of: Foo())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -40,9 +42,9 @@ final class ProxyTests: XCTestCase {
   }
 
   func testProxy() {
-    var proxy = Proxy(of: Foo())
+    var proxy = ProxyRef(of: Foo())
     let expectation = XCTestExpectation(description: "didChangeEvent")
-    let _ = proxy.didChange.sink { change in
+    subscriber = proxy.propertyDidChange.sink { change in
       if let _ = change.match(keyPath: \Foo.label) {
         expectation.fulfill()
       }

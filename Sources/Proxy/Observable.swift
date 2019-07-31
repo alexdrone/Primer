@@ -5,19 +5,39 @@ import Combine
 #endif
 
 @available(OSX 10.15, iOS 13.0, *)
-public protocol Observable {
-  /// An instance that publishes an event immediately before the object changes.
-  var willChange: PassthroughSubject<PropertyChange, Never> { get }
-  /// An instance that publishes an event immediately after the object changes.
-  var didChange: PassthroughSubject<PropertyChange, Never> { get }
+public protocol PropertyObservableObject: class {
+  /// A publisher that emits when an object property has changed.
+  var propertyDidChange: PassthroughSubject<AnyPropertyChangeEvent, Never> { get }
+}
+
+@available(OSX 10.15, iOS 13.0, *)
+public protocol AnySubscription: class {
+  /// Used to subscribe to any `ObservableObject`.
+  var objectWillChangeSubscriber: Cancellable? { get set }
+  /// Used to subscribe to any `PropertyObservableObject`.
+  var propertyDidChangeSubscriber: Cancellable? { get set }
 }
 
 /// Represent an object mutation.
-public struct PropertyChange {
+public struct AnyPropertyChangeEvent {
   /// The proxy's wrapped value.
   public let object: Any
   /// The mutated keyPath.
   public let keyPath: AnyKeyPath?
+
+  /// Returns a new `allChanged` event.
+  public static func allChangedEvent<T>(object: T) -> AnyPropertyChangeEvent {
+    return AnyPropertyChangeEvent(object: object, keyPath: nil)
+  }
+
+  /// This event signal that the whole object changed and all of its properties should be marked
+  /// as dirty.
+  public func allChanged<T>(type: T.Type) -> Bool {
+    guard let _ = object as? T, keyPath == nil else {
+      return false
+    }
+    return true
+  }
 
   /// Returns the tuple `object, value` if this property change matches the `keyPath` passed as
   /// argument.
@@ -29,37 +49,3 @@ public struct PropertyChange {
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
-public protocol ObservableProxy: ImmutableProxyProtocol, BindableObject {
-  /// Used for the internal subscription to `Observable.willChange` (if applicable).
-  var willChangeSubscription: Cancellable? { get set }
-  /// Used for the internal subscription to `Observable.didChange` (if applicable).
-  var didChangeSubscription: Cancellable? { get set }
-  /// An instance that publishes an event immediately before the object changes.
-  var willChange: PassthroughSubject<PropertyChange, Never> { get }
-  /// An instance that publishes an event immediately after the object changes.
-  var didChange: PassthroughSubject<PropertyChange, Never> { get }
-}
-
-@available(OSX 10.15, iOS 13.0, *)
-extension ObservableProxy {
-  /// Forwards the `Observable.willChange` and `Observable.didChange` streams to the
-  /// `ObservableProxy` ones.
-  func propagateSubjectsIfNeeded() {
-    guard let observableValue = wrappedValue as? Observable else {
-      return
-    }
-    willChangeSubscription = observableValue.willChange.sink { [weak self] change in
-      self?.willChange.send(change)
-    }
-    didChangeSubscription = observableValue.didChange.sink { [weak self] change in
-      self?.didChange.send(change)
-    }
-  }
-
-  /// Force emit a property change event down the passthrough subjects.
-  func send(change: PropertyChange) {
-    willChange.send(change)
-    didChange.send(change)
-  }
-}
