@@ -13,11 +13,11 @@ struct Foo {
   var number = 42
 }
 
-var immutableProxy = ImmutableProxy(of: Foo())
+var immutableProxy = ImmutableProxyRef(of: Foo())
 immutableProxy.label // "Initial"
 immutableProxy.number // 42
 
-var mutableProxy = MutableProxy(of: Foo())
+var mutableProxy = ProxyRef(of: Foo())
 mutableProxy.label // "Initial"
 mutableProxy.label = "New"
 mutableProxy.label // "New"
