@@ -1,4 +1,5 @@
 # Proxy [![Swift](https://img.shields.io/badge/swift-5.1-orange.svg?style=flat)](#)
+<img src="https://raw.githubusercontent.com/alexdrone/Proxy/master/Docsogo.png" width=150 alt="Proxy" align=right />
 
 Swift package that implements mutable and immutable *proxy objects* through `@dynamicMemberLookup`, 
 and lazy proxy-based object builders.
