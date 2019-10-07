@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(Combine)
-import Combine
+  import Combine
 #endif
 
 @available(OSX 10.15, iOS 13.0, *)
@@ -13,6 +14,7 @@ public protocol PropertyObservableObject: class {
 public protocol AnySubscription: class {
   /// Used to subscribe to any `ObservableObject`.
   var objectWillChangeSubscriber: Cancellable? { get set }
+
   /// Used to subscribe to any `PropertyObservableObject`.
   var propertyDidChangeSubscriber: Cancellable? { get set }
 }
@@ -21,6 +23,7 @@ public protocol AnySubscription: class {
 public struct AnyPropertyChangeEvent {
   /// The proxy's wrapped value.
   public let object: Any
+
   /// The mutated keyPath.
   public let keyPath: AnyKeyPath?
 
@@ -47,4 +50,3 @@ public struct AnyPropertyChangeEvent {
     return (obj, obj[keyPath: keyPath])
   }
 }
-

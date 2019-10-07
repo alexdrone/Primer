@@ -4,18 +4,21 @@ import Foundation
 
 public protocol ProxyBuilderProtocol {
   associatedtype ObjectType
+
   /// The initial instance that is going to be used by the builder.
   var createInstanceClosure: () -> ObjectType { get }
+
   /// All of the `set` commands that will performed by this builder.
   var keypathSetValueDictionary: [AnyKeyPath: (inout ObjectType) -> Void] { get set }
+
   /// All of the values currently set.
   var keypathGetValueDictionary: [AnyKeyPath: Any] { get set }
 }
 
-public extension ProxyBuilderProtocol {
+extension ProxyBuilderProtocol {
   /// Use `@dynamicMemberLookup` keypath subscript to store the object configuration and postpone
   /// the object construction.
-  subscript<T>(dynamicMember keyPath: WritableKeyPath<ObjectType, T>) -> T? {
+  public subscript<T>(dynamicMember keyPath: WritableKeyPath<ObjectType, T>) -> T? {
     get {
       return keypathGetValueDictionary[keyPath] as? T
     }

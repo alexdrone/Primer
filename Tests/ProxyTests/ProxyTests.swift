@@ -1,5 +1,6 @@
-import XCTest
 import Combine
+import XCTest
+
 @testable import Proxy
 
 struct Foo {
@@ -44,17 +45,18 @@ final class ProxyTests: XCTestCase {
   func testProxy() {
     var proxy = ProxyRef(of: Foo())
     let expectation = XCTestExpectation(description: "didChangeEvent")
-    subscriber = proxy.propertyDidChange.sink { change in
-      if let _ = change.match(keyPath: \Foo.label) {
-        expectation.fulfill()
+    subscriber
+      = proxy.propertyDidChange.sink { change in
+        if let _ = change.match(keyPath: \Foo.label) {
+          expectation.fulfill()
+        }
       }
-    }
     proxy.label = "Change"
     wait(for: [expectation], timeout: 1)
   }
 
-    static var allTests = [
-        ("testImmutableProxy", testImmutableProxy),
-        ("testProxyBuilder", testProxyBuilder),
-    ]
+  static var allTests = [
+    ("testImmutableProxy", testImmutableProxy),
+    ("testProxyBuilder", testProxyBuilder),
+  ]
 }

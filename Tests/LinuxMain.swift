@@ -1,6 +1,5 @@
-import XCTest
-
 import ProxyTests
+import XCTest
 
 var tests = [XCTestCaseEntry]()
 tests += ProxyTests.allTests()
