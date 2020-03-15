@@ -1,20 +1,14 @@
 import Foundation
+import Combine
 
-#if canImport(Combine)
-  import Combine
-#endif
-
-@available(OSX 10.15, iOS 13.0, *)
 public protocol PropertyObservableObject: class {
   /// A publisher that emits when an object property has changed.
   var propertyDidChange: PassthroughSubject<AnyPropertyChangeEvent, Never> { get }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 public protocol AnySubscription: class {
   /// Used to subscribe to any `ObservableObject`.
   var objectWillChangeSubscriber: Cancellable? { get set }
-
   /// Used to subscribe to any `PropertyObservableObject`.
   var propertyDidChangeSubscriber: Cancellable? { get set }
 }
@@ -23,10 +17,8 @@ public protocol AnySubscription: class {
 public struct AnyPropertyChangeEvent {
   /// The proxy's wrapped value.
   public let object: Any
-
   /// The mutated keyPath.
   public let keyPath: AnyKeyPath?
-
   /// Returns a new `allChanged` event.
   public static func allChangedEvent<T>(object: T) -> AnyPropertyChangeEvent {
     return AnyPropertyChangeEvent(object: object, keyPath: nil)

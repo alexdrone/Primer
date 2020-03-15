@@ -32,7 +32,7 @@ final class ProxyTests: XCTestCase {
   }
 
   func testProxyBuilder() {
-    var builder = ProxyBuilder(createInstanceClosure: { Foo() })
+    var builder = Partial(createInstanceClosure: { Foo() })
     builder.label = "New"
     builder.number = 1
     XCTAssert(builder.label == "New")

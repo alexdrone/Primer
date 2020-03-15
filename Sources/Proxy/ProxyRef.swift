@@ -1,13 +1,9 @@
 import Foundation
-
-#if canImport(Combine)
-  import Combine
-#endif
+import Combine
 
 public protocol MutableProxyProtocol: ImmutableProxyProtocol {
   /// The proxied object is about to be mutated with value `value`.
   func willSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
-
   /// The proxied object was mutated with value `value`.
   func didSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
 }
@@ -26,16 +22,16 @@ extension MutableProxyProtocol {
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 @dynamicMemberLookup
 @propertyWrapper
 open class ProxyRef<T>:
-  MutableProxyProtocol, AnySubscription, ObservableObject, PropertyObservableObject, NSCopying
-{
-
+  MutableProxyProtocol,
+  AnySubscription,
+  ObservableObject,
+  PropertyObservableObject,
+  NSCopying {
   // Observable internals.
   public var objectWillChangeSubscriber: Cancellable?
-
   public var propertyDidChangeSubscriber: Cancellable?
   public var propertyDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
 
@@ -51,10 +47,12 @@ open class ProxyRef<T>:
     return ProxyRef(of: wrappedValue)
   }
 
-  open func willSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
-    // Subclasses to implement this method.
-  }
+  /// Subclasses to override this method.
+  /// - note: Remember to invoke the `super` implementation.
+  open func willSetValue<V>(keyPath: KeyPath<T, V>, value: V) { }
 
+  /// Subclasses to override this method.
+  /// - note: Remember to invoke the `super` implementation.
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
     objectWillChange.send()
     propertyDidChange.send(AnyPropertyChangeEvent(object: self.wrappedValue, keyPath: keyPath))
@@ -62,7 +60,6 @@ open class ProxyRef<T>:
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 extension ProxyRef: Equatable where T: Equatable {
   /// Two `MutableObservableProxy` are considered equal if they are proxies for the same object.
   public static func == (lhs: ProxyRef<T>, rhs: ProxyRef<T>) -> Bool {
@@ -70,7 +67,6 @@ extension ProxyRef: Equatable where T: Equatable {
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 extension ProxyRef: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
@@ -78,24 +74,20 @@ extension ProxyRef: Hashable where T: Hashable {
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 extension ProxyRef where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
-    propertyDidChangeSubscriber
-      = wrappedValue.propertyDidChange.sink { [weak self] change in
-        self?.propertyDidChange.send(change)
-      }
+    propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
+      self?.propertyDidChange.send(change)
+    }
   }
 }
 
-@available(OSX 10.15, iOS 13.0, *)
 extension ProxyRef where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
-    objectWillChangeSubscriber
-      = wrappedValue.objectWillChange.sink { [weak self] change in
-        self?.objectWillChange.send()
-      }
+    objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
+      self?.objectWillChange.send()
+    }
   }
 }

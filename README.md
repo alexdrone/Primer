@@ -2,7 +2,7 @@
 <img src="https://raw.githubusercontent.com/alexdrone/Proxy/master/Docs/logo.png" width=150 alt="Proxy" align=right />
 
 Swift package that implements mutable and immutable *proxy objects* through `@dynamicMemberLookup`, 
-and lazy proxy-based object builders.
+and lazy proxy-based object builders (`Partials`).
 
 #### TL;DR
 
@@ -23,10 +23,10 @@ mutableProxy.label // "Initial"
 mutableProxy.label = "New"
 mutableProxy.label // "New"
 
-var proxyBuilder = ProxyBuilder(createInstanceClosure: { Foo() })
-proxyBuilder.label = "Bar"
-proxyBuilder.number = 1
-let obj = proxyBuilder.build()
+var partial = Partial(createInstanceClosure: { Foo() })
+partial.label = "Bar"
+partial.number = 1
+let obj = partial.build()
 obj.label // "Bar"
 obj.number // 1
 
