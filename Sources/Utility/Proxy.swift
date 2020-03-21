@@ -1,31 +1,11 @@
 import Foundation
 import Combine
 
-public protocol MutableProxyProtocol: ImmutableProxyProtocol {
-  /// The proxied object is about to be mutated with value `value`.
-  func willSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
-  /// The proxied object was mutated with value `value`.
-  func didSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
-}
-
-extension MutableProxyProtocol {
-  /// Extends `ImmutableProxyProtocol` by adding the the `set` subscript for `WritableKeyPath`s.
-  public subscript<T>(dynamicMember keyPath: WritableKeyPath<ProxyType, T>) -> T {
-    get {
-      return wrappedValue[keyPath: keyPath]
-    }
-    set {
-      willSetValue(keyPath: keyPath, value: newValue)
-      wrappedValue[keyPath: keyPath] = newValue
-      didSetValue(keyPath: keyPath, value: newValue)
-    }
-  }
-}
-
+/// Creates an observable Proxy for the object passed as argument.
 @dynamicMemberLookup
 @propertyWrapper
-open class ProxyRef<T>:
-  MutableProxyProtocol,
+open class Proxy<T>:
+  ProxyProtocol,
   AnySubscription,
   ObservableObject,
   PropertyObservableObject,
@@ -44,7 +24,7 @@ open class ProxyRef<T>:
 
   /// Returns a new instance that’s a copy of the receiver.
   public func copy(with zone: NSZone? = nil) -> Any {
-    return ProxyRef(of: wrappedValue)
+    return Proxy(of: wrappedValue)
   }
 
   /// Subclasses to override this method.
@@ -60,21 +40,21 @@ open class ProxyRef<T>:
   }
 }
 
-extension ProxyRef: Equatable where T: Equatable {
+extension Proxy: Equatable where T: Equatable {
   /// Two `MutableObservableProxy` are considered equal if they are proxies for the same object.
-  public static func == (lhs: ProxyRef<T>, rhs: ProxyRef<T>) -> Bool {
+  public static func == (lhs: Proxy<T>, rhs: Proxy<T>) -> Bool {
     return lhs.wrappedValue == rhs.wrappedValue
   }
 }
 
-extension ProxyRef: Hashable where T: Hashable {
+extension Proxy: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
     return wrappedValue.hash(into: &hasher)
   }
 }
 
-extension ProxyRef where T: PropertyObservableObject {
+extension Proxy where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
     propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
@@ -83,11 +63,34 @@ extension ProxyRef where T: PropertyObservableObject {
   }
 }
 
-extension ProxyRef where T: ObservableObject {
+extension Proxy where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
     objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
       self?.objectWillChange.send()
+    }
+  }
+}
+
+// MARK: - Internal
+
+public protocol ProxyProtocol: ReadOnlyProtocol {
+  /// The proxied object is about to be mutated with value `value`.
+  func willSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
+  /// The proxied object was mutated with value `value`.
+  func didSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
+}
+
+extension ProxyProtocol {
+  /// Extends `ReadOnlyProtocol` by adding the the `set` subscript for `WritableKeyPath`s.
+  public subscript<T>(dynamicMember keyPath: WritableKeyPath<ProxyType, T>) -> T {
+    get {
+      return wrappedValue[keyPath: keyPath]
+    }
+    set {
+      willSetValue(keyPath: keyPath, value: newValue)
+      wrappedValue[keyPath: keyPath] = newValue
+      didSetValue(keyPath: keyPath, value: newValue)
     }
   }
 }

@@ -1,23 +1,21 @@
 import Foundation
 import Combine
 
-public protocol ImmutableProxyProtocol {
-  associatedtype ProxyType
-  /// The wrapped proxied object.
-  var wrappedValue: ProxyType { get set }
-}
-
-extension ImmutableProxyProtocol {
-  /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.
-  public subscript<V>(dynamicMember keyPath: KeyPath<ProxyType, V>) -> V {
-    return wrappedValue[keyPath: keyPath]
-  }
-}
-
+/// Constructs a type with all properties of T set to readonly, meaning the properties of
+/// the constructed type cannot be reassigned.
+/// - note: A read-only object propagetes observable changes from its wrapped object.
+///
+/// ```
+/// struct Todo { var title: String; var description: String }
+/// let todo = Todo(title: "A Title", description: "A Description")
+/// let readOnlyTodo = ReadOnly(todo)
+/// readOnlyTodo.title // "A title"
+/// ```
+///
 @dynamicMemberLookup
 @propertyWrapper
-open class ImmutableProxyRef<T>:
-  ImmutableProxyProtocol,
+open class ReadOnly<T>:
+  ReadOnlyProtocol,
   AnySubscription,
   ObservableObject,
   PropertyObservableObject {
@@ -34,7 +32,7 @@ open class ImmutableProxyRef<T>:
   }
 }
 
-extension ImmutableProxyRef where T: PropertyObservableObject {
+extension ReadOnly where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
     propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
@@ -43,11 +41,26 @@ extension ImmutableProxyRef where T: PropertyObservableObject {
   }
 }
 
-extension ImmutableProxyRef where T: ObservableObject {
+extension ReadOnly where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
     objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
       self?.objectWillChange.send()
     }
+  }
+}
+
+// MARK: - Internal
+
+public protocol ReadOnlyProtocol {
+  associatedtype ProxyType
+  /// The wrapped proxied object.
+  var wrappedValue: ProxyType { get set }
+}
+
+extension ReadOnlyProtocol {
+  /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.
+  public subscript<V>(dynamicMember keyPath: KeyPath<ProxyType, V>) -> V {
+    return wrappedValue[keyPath: keyPath]
   }
 }
