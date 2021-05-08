@@ -15,6 +15,9 @@ public func assign<T>(_ value: T, changes: (inout T) -> Void) -> T
 Constructs a type with all properties of T set to optional. This utility will return a type 
 that represents all subsets of a given type.
 
+The wrapped type can be then constructed at referred time by calling the `build()` method.
+The instance can be later on changed with the `merge(inout _:)` method.
+
  ```swift
  struct Todo { var title: String; var description: String } 
  var partial = Partial { .success(Todo(
@@ -32,7 +35,9 @@ todo = partial.merge(&todo)
 
 Constructs a type with all properties of T set to readonly, meaning the properties of
 the constructed type cannot be reassigned.
-*Note*: A read-only object propagetes observable changes from its wrapped object.
+
+**Note**  A read-only object can propagate change events if the wrapped type ia an
+`ObservableObject` by calling `propagateObservableObject()` at construction time.
 
  ```swift
  struct Todo { var title: String; var description: String }
@@ -41,9 +46,11 @@ the constructed type cannot be reassigned.
  readOnlyTodo.title // "A title"
  ``` 
 
- ### Proxy
+ ### ObservableProxy
  
- Creates an observable Proxy for the object passed as argument.
+ Creates an observable Proxy for the object passed as argument (with granularity at the 
+ property level).
+ 
 
 ```swift
 struct Todo { var title: String; var description: String }
@@ -56,3 +63,18 @@ proxy.propertyDidChange.sink {
 }
 proxy.title = "New Title"
 ```
+
+### Locks
+
+This package offer a variety of different lock implementations:
+* **Mutex**: enforces limits on access to a resource when there are many threads 
+of execution.
+* **UnfairLock**: low-level lock that allows waiters to block efficiently on contention.
+* **ReadersWriterLock**: readers-writer lock provided by the platform implementation 
+of the POSIX Threads standard.
+
+Property wrappers to work with any of the locks above or any `NSLocking` compliant lock:
+* **@Atomic<L: Locking>**
+* **@SyncDispatchQueueAtomic**
+* **ReadersWriterAtomic**
+

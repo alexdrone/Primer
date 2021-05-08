@@ -4,7 +4,7 @@ import Combine
 /// Creates an observable Proxy for the object passed as argument.
 @dynamicMemberLookup
 @propertyWrapper
-open class Proxy<T>:
+open class ObservableProxy<T>:
   ProxyProtocol,
   AnySubscription,
   ObservableObject,
@@ -24,7 +24,7 @@ open class Proxy<T>:
 
   /// Returns a new instance that’s a copy of the receiver.
   public func copy(with zone: NSZone? = nil) -> Any {
-    return Proxy(of: wrappedValue)
+    return ObservableProxy(of: wrappedValue)
   }
 
   /// Subclasses to override this method.
@@ -40,21 +40,21 @@ open class Proxy<T>:
   }
 }
 
-extension Proxy: Equatable where T: Equatable {
+extension ObservableProxy: Equatable where T: Equatable {
   /// Two `MutableObservableProxy` are considered equal if they are proxies for the same object.
-  public static func == (lhs: Proxy<T>, rhs: Proxy<T>) -> Bool {
+  public static func == (lhs: ObservableProxy<T>, rhs: ObservableProxy<T>) -> Bool {
     return lhs.wrappedValue == rhs.wrappedValue
   }
 }
 
-extension Proxy: Hashable where T: Hashable {
+extension ObservableProxy: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
     return wrappedValue.hash(into: &hasher)
   }
 }
 
-extension Proxy where T: PropertyObservableObject {
+extension ObservableProxy where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
     propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
@@ -63,7 +63,7 @@ extension Proxy where T: PropertyObservableObject {
   }
 }
 
-extension Proxy where T: ObservableObject {
+extension ObservableProxy where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
     objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in

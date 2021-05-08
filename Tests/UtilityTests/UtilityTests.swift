@@ -29,7 +29,7 @@ final class UtilityTests: XCTestCase {
   }
 
   func testMutableProxy() {
-    var proxy = Proxy(of: Foo())
+    var proxy = ObservableProxy(of: Foo())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -60,7 +60,7 @@ final class UtilityTests: XCTestCase {
   }
 
   func testProxy() {
-    var proxy = Proxy(of: Foo())
+    var proxy = ObservableProxy(of: Foo())
     let expectation = XCTestExpectation(description: "didChangeEvent")
     subscriber
       = proxy.propertyDidChange.sink { change in

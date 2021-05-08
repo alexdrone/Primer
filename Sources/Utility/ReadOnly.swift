@@ -1,9 +1,11 @@
 import Foundation
 import Combine
 
-/// Constructs a type with all properties of T set to readonly, meaning the properties of
-/// the constructed type cannot be reassigned.
-/// - note: A read-only object propagetes observable changes from its wrapped object.
+/// Constructs a type with all properties of the given generic type `T` set to readonly,
+/// meaning the properties of the constructed type cannot be reassigned.
+///
+/// - note: A read-only object can propagate change events if the wrapped type ia an
+/// `ObservableObject` by calling `propagateObservableObject` at construction time.
 ///
 /// ```
 /// struct Todo { var title: String; var description: String }
@@ -33,7 +35,7 @@ open class ReadOnly<T>:
 }
 
 extension ReadOnly where T: PropertyObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
+  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy object.
   func propagatePropertyObservableObject() {
     propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
       self?.propertyDidChange.send(change)
@@ -42,7 +44,7 @@ extension ReadOnly where T: PropertyObservableObject {
 }
 
 extension ReadOnly where T: ObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
+  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy object.
   func propagateObservableObject() {
     objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
       self?.objectWillChange.send()

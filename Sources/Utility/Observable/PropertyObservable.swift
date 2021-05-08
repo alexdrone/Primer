@@ -9,6 +9,7 @@ public protocol PropertyObservableObject: class {
 public protocol AnySubscription: class {
   /// Used to subscribe to any `ObservableObject`.
   var objectWillChangeSubscriber: Cancellable? { get set }
+  
   /// Used to subscribe to any `PropertyObservableObject`.
   var propertyDidChangeSubscriber: Cancellable? { get set }
 }
@@ -17,8 +18,10 @@ public protocol AnySubscription: class {
 public struct AnyPropertyChangeEvent {
   /// The proxy's wrapped value.
   public let object: Any
+  
   /// The mutated keyPath.
   public let keyPath: AnyKeyPath?
+  
   /// Returns a new `allChanged` event.
   public static func allChangedEvent<T>(object: T) -> AnyPropertyChangeEvent {
     return AnyPropertyChangeEvent(object: object, keyPath: nil)

@@ -23,8 +23,10 @@ import Foundation
 public struct Partial<T> {
   /// The construction closure invoked by `build()`.
   public let createInstanceClosure: (Partial<T>) -> Result<T, Error>
+  
   /// All of the values currently set in this partial.
-  public var keypathToValueMap: [AnyKeyPath: Any] = [:]
+  private var keypathToValueMap: [AnyKeyPath: Any] = [:]
+  
   /// All of the `set` commands that will performed once the object is built.
   private var keypathToSetValueMap: [AnyKeyPath: (inout T) -> Void] = [:]
   
