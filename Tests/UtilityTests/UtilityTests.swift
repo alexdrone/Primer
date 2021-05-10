@@ -17,6 +17,10 @@ struct Foo {
   }
 }
 
+enum Progress: Int, LocklessAtomicWrappable {
+  case started, ongoing, finished
+}
+
 @available(OSX 10.15, iOS 13.0, *)
 final class UtilityTests: XCTestCase {
   var subscriber: Cancellable?
@@ -70,6 +74,14 @@ final class UtilityTests: XCTestCase {
       }
     proxy.label = "Change"
     wait(for: [expectation], timeout: 1)
+  }
+  
+  func testLocklessAtomic() {
+    var atomicInt = LocklessAtomic(wrappedValue: 10)
+    XCTAssertTrue(atomicInt.compareAndExchange(expected: 10, desired: 12))
+    XCTAssert(atomicInt.value == 12)
+    XCTAssertFalse(atomicInt.compareAndExchange(expected: 5, desired: 10))
+    XCTAssert(atomicInt.value == 12)
   }
 
   static var allTests = [

@@ -64,17 +64,19 @@ proxy.propertyDidChange.sink {
 proxy.title = "New Title"
 ```
 
-### Locks
+### Concurrency
 
 This package offer a variety of different lock implementations:
-* **Mutex**: enforces limits on access to a resource when there are many threads 
+* `Mutex`: enforces limits on access to a resource when there are many threads 
 of execution.
-* **UnfairLock**: low-level lock that allows waiters to block efficiently on contention.
-* **ReadersWriterLock**: readers-writer lock provided by the platform implementation 
+* `UnfairLock`: low-level lock that allows waiters to block efficiently on contention.
+* `ReadersWriterLock`: readers-writer lock provided by the platform implementation 
 of the POSIX Threads standard.
 
 Property wrappers to work with any of the locks above or any `NSLocking` compliant lock:
-* **@Atomic<L: Locking>**
-* **@SyncDispatchQueueAtomic**
-* **ReadersWriterAtomic**
+* `@LockAtomic<L: Locking>`
+* `@SyncDispatchQueueAtomic`
+* `@ReadersWriterAtomic`
 
+
+The package also includes `LocklessAtomic`:  fine-grained atomic operations allowing for lockless concurrent programming. Each atomic operation is indivisible with regards to any other atomic operation that involves the same object.

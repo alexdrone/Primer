@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Atomic
 
 @propertyWrapper
-public final class Atomic<L: Locking, T> {
+public final class LockAtomic<L: Locking, T> {
   private let lock: L
   private var value: T
 
@@ -37,7 +37,7 @@ public final class Atomic<L: Locking, T> {
   }
 
   /// The $-prefixed value.
-  public var projectedValue: Atomic<L, T> { self }
+  public var projectedValue: LockAtomic<L, T> { self }
 }
 
 // MARK: - SyncDispatchQueueAtomic
