@@ -17,7 +17,7 @@ struct Foo {
   }
 }
 
-enum Progress: Int, LocklessAtomicWrappable {
+enum Progress: Int {
   case started, ongoing, finished
 }
 
@@ -82,6 +82,12 @@ final class UtilityTests: XCTestCase {
     XCTAssert(atomicInt.value == 12)
     XCTAssertFalse(atomicInt.compareAndExchange(expected: 5, desired: 10))
     XCTAssert(atomicInt.value == 12)
+    
+    var progress = LocklessAtomicBacked(value: Progress.ongoing)
+    XCTAssertTrue(progress.compareAndExchange(expected: .ongoing, desired: .finished))
+    XCTAssert(progress.value == .finished)
+    progress.value = .started
+    XCTAssert(progress.value == .started)
   }
 
   static var allTests = [
