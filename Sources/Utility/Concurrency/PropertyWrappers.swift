@@ -44,16 +44,20 @@ public final class LockAtomic<L: Locking, T> {
 
 @propertyWrapper
 public final class SyncDispatchQueueAtomic<T> {
-  private let queue = DispatchQueue(label: "SyncDispatchQueueAtomic.\(UUID().uuidString)")
+  private let queue: DispatchQueue
   private var value: T
+  private let concurrentReads: Bool
 
-  public init(wrappedValue: T) {
+  public init(wrappedValue: T, concurrentReads: Bool = true) {
     self.value = wrappedValue
+    self.concurrentReads = concurrentReads
+    let label = "SyncDispatchQueueAtomic.\(UUID().uuidString)"
+    self.queue =  DispatchQueue(label: label, attributes: concurrentReads ? [.concurrent] : [])
   }
 
   public var wrappedValue: T {
     get { queue.sync { value } }
-    set { queue.sync { value = newValue } }
+    set { queue.sync(flags: concurrentReads ? [.barrier] : []) { value = newValue } }
   }
 
   /// Used for multi-statement atomic access to the wrapped property.
@@ -101,7 +105,6 @@ public final class ReadersWriterAtomic<T> {
   public func mutate(_ block: (inout T) -> Void) {
     lock.withWriteLock {
       block(&value)
-
     }
   }
 

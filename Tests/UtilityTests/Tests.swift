@@ -3,37 +3,19 @@ import XCTest
 
 @testable import Utility
 
-struct Foo {
-  let constant = 1337
-  var label = "Initial"
-  var number = 42
-  
-  init() {
-  }
-  
-  init(label: String, number: Int) {
-    self.label = label
-    self.number = number
-  }
-}
-
-enum Progress: Int {
-  case started, ongoing, finished
-}
-
 @available(OSX 10.15, iOS 13.0, *)
-final class UtilityTests: XCTestCase {
+final class Tests: XCTestCase {
   var subscriber: Cancellable?
 
   func testImmutableProxy() {
-    let proxy = ReadOnly(of: Foo())
+    let proxy = ReadOnly(of: TestData())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
   }
 
   func testMutableProxy() {
-    var proxy = ObservableProxy(of: Foo())
+    var proxy = ObservableProxy(of: TestData())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -64,11 +46,11 @@ final class UtilityTests: XCTestCase {
   }
 
   func testProxy() {
-    var proxy = ObservableProxy(of: Foo())
+    var proxy = ObservableProxy(of: TestData())
     let expectation = XCTestExpectation(description: "didChangeEvent")
     subscriber
       = proxy.propertyDidChange.sink { change in
-        if let _ = change.match(keyPath: \Foo.label) {
+        if let _ = change.match(keyPath: \TestData.label) {
           expectation.fulfill()
         }
       }
@@ -76,14 +58,14 @@ final class UtilityTests: XCTestCase {
     wait(for: [expectation], timeout: 1)
   }
   
-  func testLocklessAtomic() {
-    var atomicInt = LocklessAtomic(wrappedValue: 10)
+  func testLockfreeAtomic() {
+    var atomicInt = LockfreeAtomicStorage(wrappedValue: 10)
     XCTAssertTrue(atomicInt.compareAndExchange(expected: 10, desired: 12))
     XCTAssert(atomicInt.value == 12)
     XCTAssertFalse(atomicInt.compareAndExchange(expected: 5, desired: 10))
     XCTAssert(atomicInt.value == 12)
     
-    var progress = LocklessAtomicBacked(value: Progress.ongoing)
+    var progress = AtomicFlag(value: TestEnum.ongoing)
     XCTAssertTrue(progress.compareAndExchange(expected: .ongoing, desired: .finished))
     XCTAssert(progress.value == .finished)
     progress.value = .started
@@ -92,6 +74,27 @@ final class UtilityTests: XCTestCase {
 
   static var allTests = [
     ("testImmutableProxy", testImmutableProxy),
+    ("testMutableProxy", testMutableProxy),
     ("testProxyBuilder", testProxyBuilder),
+    ("testProxy", testProxy),
+    ("testLockfreeAtomic", testLockfreeAtomic),
   ]
 }
+
+// MARK: - Mocks
+
+struct TestData {
+  let constant = 1337
+  var label = "Initial"
+  var number = 42
+  
+  init() {
+  }
+  
+  init(label: String, number: Int) {
+    self.label = label
+    self.number = number
+  }
+}
+
+enum TestEnum: Int { case started, ongoing, finished }

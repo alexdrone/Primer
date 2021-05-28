@@ -1,73 +1,21 @@
 import Foundation
 import CxxUtility
 
-/// Fine-grained atomic operations allowing for lockless concurrent programming.
-/// Each atomic operation is indivisible with regards to any other atomic operation that involves
-/// the same object.
-/// This synchronization mechanism works only with value types.
-public struct LocklessAtomic<T> {
-  private var rawValue = 0
+/// Lockfree atomic enum/options set.
+public struct AtomicFlag<T: RawRepresentable> where T.RawValue == Int {
+  private var backingStorage: LockfreeAtomicStorage<Int>
   
-  private init() { }
-  
-  public init(wrappedValue: T) {
-    assert(atomicIsLockFree(&rawValue), "The wrapped type is not a built-in atomic type.")
-    assert(MemoryLayout.size(ofValue: wrappedValue) == MemoryLayout.size(ofValue: rawValue))
-    self.value = wrappedValue
-  }
-
-  @inline(__always)
-  public var value: T {
-      get { unsafeBitCast(rawValue, to: T.self) }
-      set { atomicStore(&rawValue, value: unsafeBitCast(newValue, to: Int.self)) }
-  }
-  
-  ///  Atomically replaces the value currently owned with the value of `newValue`.
-  @inline(__always)
-  public mutating func exchange(with newValue: T) {
-    let _ = atomicExchange(&rawValue, with: unsafeBitCast(newValue, to: Int.self))
-  }
-  
-  /// Compares the contents of the value currently owned with `expected` and  if `true`, it replaces
-  /// it with `desired`.
-  /// The entire operation is atomic: the value cannot be modified by other threads between
-  /// the instant its value is read and the moment it is replaced.
-  @inline(__always)
-  public mutating func compareAndExchange(expected: T, desired: T) -> Bool {
-    atomicCompareExchange(
-      &rawValue,
-      expected: unsafeBitCast(expected, to: Int.self),
-      desired: unsafeBitCast(desired, to: Int.self))
-  }
-}
-
-extension LocklessAtomic where T == Int {
-  
-  /// Atomically add `ammount` to this wrapped integer.
-  public mutating func fetchAdd(_ ammount: Int) {
-    atomicAdd(&rawValue, value: ammount)
-  }
-}
-
-// MARK: - LocklessAtomicBacked
-
-public struct LocklessAtomicBacked<T: RawRepresentable> where T.RawValue == Int {
-  
-  /// The atomic int backing this value.
-  public private(set) var backingStorage: LocklessAtomic<Int>
-  
-  /// Casts the backing storage to the desired type.
   public var value: T {
     get { T(rawValue: backingStorage.value)! }
     set { backingStorage.exchange(with: newValue.rawValue) }
   }
   
   public init(value: T) {
-    backingStorage = LocklessAtomic<Int>(wrappedValue: value.rawValue)
+    backingStorage = LockfreeAtomicStorage<Int>(wrappedValue: value.rawValue)
   }
   
-  /// Compares the contents of the value currently owned with `expected` and  if `true`, it replaces
-  /// it with `desired`.
+  /// Compares the contents of the value currently stored with `expected` and  if it matches,
+  ///  it replaces it with `desired`.
   /// The entire operation is atomic: the value cannot be modified by other threads between
   /// the instant its value is read and the moment it is replaced.
   public mutating func compareAndExchange(expected: T, desired: T) -> Bool {
@@ -75,34 +23,147 @@ public struct LocklessAtomicBacked<T: RawRepresentable> where T.RawValue == Int 
   }
 }
 
-// MARK: - Internal
+/// Lockfree atomic boolean.
+public struct AtomicBool {
+  private var backingStorage: LockfreeAtomicStorage<Int>
+  
+  public var value: Bool {
+    get { backingStorage.value != 0 }
+    set { backingStorage.exchange(with: (newValue ? 1 : 0)) }
+  }
+  
+  public init(value: Bool) {
+    backingStorage = LockfreeAtomicStorage<Int>(wrappedValue: value ? 1 : 0)
+  }
+  
+  /// Compares the contents of the value currently stored with `expected` and  if it matches,
+  /// it replaces it with `desired`.
+  /// The entire operation is atomic: the value cannot be modified by other threads between
+  /// the instant its value is read and the moment it is replaced.
+  public mutating func compareAndExchange(expected: Bool, desired: Bool) -> Bool {
+    backingStorage.compareAndExchange(expected: expected ? 1 : 0, desired: desired ? 1 : 0)
+  }
+  
+  /// Toggles the Boolean variable's value.
+  public mutating func toggle() -> Bool {
+    backingStorage.xor() != 0
+  }
+}
 
-@inlinable
-func atomicIsLockFree(_ pointer: UnsafeMutablePointer<Int>) -> Bool {
-  __atomicIsLockFree(OpaquePointer(pointer)) != 0
+// MARK: - Storage
+
+/// Fine-grained atomic operations allowing for Lockfree concurrent programming.
+/// Each atomic operation is indivisible with regards to any other atomic operation that involves
+/// the same object.
+struct LockfreeAtomicStorage<T> {
+  private var rawValue = 0
+
+  private init() { }
+  
+  init(wrappedValue: T) {
+    assert(atomicIsLockFree(&rawValue), "The wrapped type is not a built-in atomic type.")
+    assert(MemoryLayout.size(ofValue: wrappedValue) == MemoryLayout.size(ofValue: rawValue))
+    self.value = wrappedValue
+  }
+
+  @inlinable
+  @inline(__always)
+  var value: T {
+      get { unsafeBitCast(rawValue, to: T.self) }
+      set { atomicStore(&rawValue, value: unsafeBitCast(newValue, to: Int.self)) }
+  }
+  
+  ///  Atomically replaces the value currently owned with the value of `newValue`.
+  @inlinable
+  @inline(__always)
+  mutating func exchange(with newValue: T) {
+    let _ = atomicExchange(&rawValue, with: unsafeBitCast(newValue, to: Int.self))
+  }
+  
+  @inlinable
+  @inline(__always)
+  mutating func compareAndExchange(expected: T, desired: T) -> Bool {
+    atomicCompareExchange(
+      &rawValue,
+      expected: unsafeBitCast(expected, to: Int.self),
+      desired: unsafeBitCast(desired, to: Int.self))
+  }
+}
+
+extension LockfreeAtomicStorage where T == Int {
+
+  @inlinable
+  @inline(__always)
+  mutating func fetchAdd(_ ammount: Int) -> Int {
+    atomicAdd(&rawValue, value: ammount)
+  }
+
+  @inlinable
+  @inline(__always)
+  mutating func update(transform: (Int) -> Int) -> (old: Int, new: Int) {
+    atomicUpdate(&rawValue, transform: transform)
+  }
+
+  @inlinable
+  @inline(__always)
+  mutating func xor() -> Int {
+    atomicXor(&rawValue)
+  }
 }
 
 @inlinable
-func atomicStore(_ pointer: UnsafeMutablePointer<Int>, value: Int) {
-  __atomicStore(OpaquePointer(pointer), value)
+@inline(__always)
+public func atomicIsLockFree(_ pointer: UnsafeMutablePointer<Int>) -> Bool {
+  std_atomic_is_lock_free(OpaquePointer(pointer)) != 0
 }
 
 @inlinable
+@inline(__always)
+public func atomicStore(_ pointer: UnsafeMutablePointer<Int>, value: Int) {
+  std_atomic_store(OpaquePointer(pointer), value)
+}
+
+@inlinable
+@inline(__always)
 @discardableResult
-func atomicAdd(_ pointer: UnsafeMutablePointer<Int>, value: Int) -> Int {
-  __atomicFetchAdd(OpaquePointer(pointer), value)
+public func atomicAdd(_ pointer: UnsafeMutablePointer<Int>, value: Int) -> Int {
+  std_atomic_fetch_add(OpaquePointer(pointer), value)
 }
 
 @inlinable
+@inline(__always)
 @discardableResult
-func atomicExchange(_ pointer: UnsafeMutablePointer<Int>, with value: Int) -> Int {
-  __atomicExchange(OpaquePointer(pointer), value)
+public func atomicExchange(_ pointer: UnsafeMutablePointer<Int>, with value: Int) -> Int {
+  std_atomic_exchange(OpaquePointer(pointer), value)
 }
 
 @inlinable
+@inline(__always)
 @discardableResult
-func atomicCompareExchange(_ pointer: UnsafeMutablePointer<Int>, expected: Int, desired: Int
+public func atomicXor(_ pointer: UnsafeMutablePointer<Int>) -> Int {
+  std_atomic_fetch_xor(OpaquePointer(pointer))
+}
+
+@inlinable
+@inline(__always)
+@discardableResult
+public func atomicCompareExchange(_ pointer: UnsafeMutablePointer<Int>, expected: Int, desired: Int
 ) -> Bool {
   var expected = expected
-  return __atomicCompareExchange(OpaquePointer(pointer), &expected, desired) != 0
+  return std_atomic_compare_exchange_strong(OpaquePointer(pointer), &expected, desired) != 0
+}
+
+@inlinable
+@inline(__always)
+@discardableResult
+public func atomicUpdate(
+  _ pointer: UnsafeMutablePointer<Int>,
+  transform: (Int) -> Int
+) -> (old: Int, new: Int) {
+  var oldValue = pointer.pointee, newValue: Int
+  repeat {
+    newValue = transform(oldValue)
+  }
+  while std_atomic_compare_exchange_strong(OpaquePointer(pointer), &oldValue, newValue) == 0
+  return (oldValue, newValue)
 }

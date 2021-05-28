@@ -79,4 +79,4 @@ Property wrappers to work with any of the locks above or any `NSLocking` complia
 * `@ReadersWriterAtomic`
 
 
-The package also includes `LocklessAtomic`:  fine-grained atomic operations allowing for lockless concurrent programming. Each atomic operation is indivisible with regards to any other atomic operation that involves the same object.
+The package also includes `LockfreeAtomic`:  fine-grained atomic operations allowing for Lockfree concurrent programming. Each atomic operation is indivisible with regards to any other atomic operation that involves the same object.
