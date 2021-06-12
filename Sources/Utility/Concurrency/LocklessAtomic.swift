@@ -2,7 +2,7 @@ import Foundation
 import CxxUtility
 
 /// Lockfree atomic enum/options set.
-public struct AtomicFlag<T: RawRepresentable> where T.RawValue == Int {
+public struct AtomicFlag<T: RawRepresentable>: Sendable where T.RawValue == Int {
   private var backingStorage: LockfreeAtomicStorage<Int>
   
   public var value: T {
@@ -15,7 +15,7 @@ public struct AtomicFlag<T: RawRepresentable> where T.RawValue == Int {
   }
   
   /// Compares the contents of the value currently stored with `expected` and  if it matches,
-  ///  it replaces it with `desired`.
+  /// it replaces it with `desired`.
   /// The entire operation is atomic: the value cannot be modified by other threads between
   /// the instant its value is read and the moment it is replaced.
   public mutating func compareAndExchange(expected: T, desired: T) -> Bool {
@@ -24,7 +24,7 @@ public struct AtomicFlag<T: RawRepresentable> where T.RawValue == Int {
 }
 
 /// Lockfree atomic boolean.
-public struct AtomicBool {
+public struct AtomicBool: Sendable {
   private var backingStorage: LockfreeAtomicStorage<Int>
   
   public var value: Bool {
@@ -55,7 +55,7 @@ public struct AtomicBool {
 /// Fine-grained atomic operations allowing for Lockfree concurrent programming.
 /// Each atomic operation is indivisible with regards to any other atomic operation that involves
 /// the same object.
-struct LockfreeAtomicStorage<T> {
+struct LockfreeAtomicStorage<T>: Sendable {
   private var rawValue = 0
 
   private init() { }
@@ -91,74 +91,58 @@ struct LockfreeAtomicStorage<T> {
 }
 
 extension LockfreeAtomicStorage where T == Int {
-
-  @inlinable
-  @inline(__always)
+  @inlinable @inline(__always)
   mutating func fetchAdd(_ ammount: Int) -> Int {
     atomicAdd(&rawValue, value: ammount)
   }
 
-  @inlinable
-  @inline(__always)
-  mutating func update(transform: (Int) -> Int) -> (old: Int, new: Int) {
+  @inlinable @inline(__always)
+  mutating func update(transform: @Sendable (Int) -> Int) -> (old: Int, new: Int) {
     atomicUpdate(&rawValue, transform: transform)
   }
 
-  @inlinable
-  @inline(__always)
+  @inlinable @inline(__always)
   mutating func xor() -> Int {
     atomicXor(&rawValue)
   }
 }
 
-@inlinable
-@inline(__always)
+@inlinable @inline(__always)
 public func atomicIsLockFree(_ pointer: UnsafeMutablePointer<Int>) -> Bool {
   std_atomic_is_lock_free(OpaquePointer(pointer)) != 0
 }
 
-@inlinable
-@inline(__always)
+@inlinable @inline(__always)
 public func atomicStore(_ pointer: UnsafeMutablePointer<Int>, value: Int) {
   std_atomic_store(OpaquePointer(pointer), value)
 }
 
-@inlinable
-@inline(__always)
-@discardableResult
+@discardableResult @inlinable @inline(__always)
 public func atomicAdd(_ pointer: UnsafeMutablePointer<Int>, value: Int) -> Int {
   std_atomic_fetch_add(OpaquePointer(pointer), value)
 }
 
-@inlinable
-@inline(__always)
-@discardableResult
+@discardableResult @inlinable @inline(__always)
 public func atomicExchange(_ pointer: UnsafeMutablePointer<Int>, with value: Int) -> Int {
   std_atomic_exchange(OpaquePointer(pointer), value)
 }
 
-@inlinable
-@inline(__always)
-@discardableResult
+@discardableResult @inlinable @inline(__always)
 public func atomicXor(_ pointer: UnsafeMutablePointer<Int>) -> Int {
   std_atomic_fetch_xor(OpaquePointer(pointer))
 }
 
-@inlinable
-@inline(__always)
-@discardableResult
+@discardableResult @inlinable @inline(__always)
 public func atomicCompareExchange(_ pointer: UnsafeMutablePointer<Int>, expected: Int, desired: Int
 ) -> Bool {
   var expected = expected
   return std_atomic_compare_exchange_strong(OpaquePointer(pointer), &expected, desired) != 0
 }
 
-@inlinable
-@inline(__always)
-@discardableResult
+@discardableResult @inlinable @inline(__always)
 public func atomicUpdate(
   _ pointer: UnsafeMutablePointer<Int>,
-  transform: (Int) -> Int
+  transform: @Sendable (Int) -> Int
 ) -> (old: Int, new: Int) {
   var oldValue = pointer.pointee, newValue: Int
   repeat {

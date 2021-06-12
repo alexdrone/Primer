@@ -1,12 +1,12 @@
 import Foundation
 import Combine
 
-public protocol PropertyObservableObject: class {
+public protocol PropertyObservableObject: AnyObject {
   /// A publisher that emits when an object property has changed.
   var propertyDidChange: PassthroughSubject<AnyPropertyChangeEvent, Never> { get }
 }
 
-public protocol AnySubscription: class {
+public protocol AnySubscription: AnyObject {
   /// Used to subscribe to any `ObservableObject`.
   var objectWillChangeSubscriber: Cancellable? { get set }
   
