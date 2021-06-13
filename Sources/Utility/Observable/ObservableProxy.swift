@@ -39,8 +39,8 @@ open class ObservableProxy<T>: ObservableObject, PropertyObservableObject, Unche
   /// Internal subject used to propagate `objectWillChange` and `propertyDidChange` events.
   private var objectDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
   
-  /// Dispose bag for all of the subscription.
   private var subscriptions = Set<AnyCancellable>()
+  private var objectSubscriptions = Set<AnyCancellable>()
 
   /// Constructs a new proxy for the object passed as argument.
   public init<S: Scheduler>(object: T, options: Options<S>) {
@@ -96,6 +96,15 @@ open class ObservableProxy<T>: ObservableObject, PropertyObservableObject, Unche
     didSetValue(keyPath: keyPath, value: value)
   }
   
+  /// Replace the wrapped object with another instance.
+  public func replace(object: T) {
+    objectSubscriptions = Set<AnyCancellable>()
+    objectLock.withWriteLock {
+      self.wrappedValue = object
+    }
+    objectDidChange.send(AnyPropertyChangeEvent(object: wrappedValue, keyPath: nil))
+  }
+  
   public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
     get { get(keyPath: keyPath) }
   }
@@ -126,7 +135,7 @@ extension ObservableProxy: Identifiable where T: Identifiable {
 extension ObservableProxy where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
-    subscriptions.insert(wrappedValue.propertyDidChange.sink { [weak self] change in
+    objectSubscriptions.insert(wrappedValue.propertyDidChange.sink { [weak self] change in
       self?.objectDidChange.send(change)
     })
   }
@@ -135,7 +144,7 @@ extension ObservableProxy where T: PropertyObservableObject {
 extension ObservableProxy where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
-    subscriptions.insert(wrappedValue.objectWillChange.sink { [weak self] _ in
+    objectSubscriptions.insert(wrappedValue.objectWillChange.sink { [weak self] _ in
       guard let self = self else { return }
       self.objectDidChange.send(AnyPropertyChangeEvent(object: self.wrappedValue, keyPath: nil))
     })
