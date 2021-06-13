@@ -7,38 +7,80 @@ import Combine
 /// are thread-safe and trigger an event through the `objectWillChangeSubscriber` and
 /// `propertyDidChangeSubscriber` streams.
 @dynamicMemberLookup
-open class ObservableProxy<T>:
-  AnySubscription,
-  ObservableObject,
-  PropertyObservableObject,
-  NSCopying,
-  UncheckedSendable {
-  // Observable internals.
-  public var objectWillChangeSubscriber: Cancellable?
-  public var propertyDidChangeSubscriber: Cancellable?
+open class ObservableProxy<T>: ObservableObject, PropertyObservableObject, UncheckedSendable {
+  
+  public struct Options<S: Scheduler> {
+  
+    public enum SchedulingStrategy {
+      /// The time the publisher should wait before publishing an element.
+      case debounce(Double)
+      /// The interval at which to find and emit either the most recent expressed in the time system
+      /// of the scheduler.
+      case throttle(Double)
+      case none
+    }
+    
+    /// The scheduler on which this publisher delivers elements
+    public let scheduler: S
+    
+    /// Schedule stratey.
+    public let schedulingStrategy: SchedulingStrategy
+  }
+
+  /// Emits an event whenever any of the wrapped object has been mutated.
   public var propertyDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
 
-  private var wrappedValue: T
-  
   /// Synchronize the access to the wrapped object.
   private let objectLock = ReadersWriterLock()
 
+  /// The wrapped object.
+  private var wrappedValue: T
+
+  /// Internal subject used to propagate `objectWillChange` and `propertyDidChange` events.
+  private var objectDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
+  
+  /// Dispose bag for all of the subscription.
+  private var subscriptions = Set<AnyCancellable>()
+
   /// Constructs a new proxy for the object passed as argument.
+  public init<S: Scheduler>(object: T, options: Options<S>) {
+    wrappedValue = object
+    
+    var publisher: AnyPublisher = objectDidChange.eraseToAnyPublisher()
+    switch options.schedulingStrategy {
+    case .debounce(let seconds):
+      publisher = publisher
+        .debounce(for: .seconds(seconds), scheduler: options.scheduler)
+        .eraseToAnyPublisher()
+    case .throttle(let seconds):
+      publisher = publisher
+        .throttle(for: .seconds(seconds), scheduler: options.scheduler, latest: true)
+        .eraseToAnyPublisher()
+    case .none:
+      publisher = publisher
+        .receive(on: options.scheduler)
+        .eraseToAnyPublisher()
+    }
+    bind(publisher: publisher)
+  }
+  
   public init(object: T) {
     wrappedValue = object
+    bind(publisher: objectDidChange.eraseToAnyPublisher())
   }
-
-  /// Returns a new instance that’s a copy of the receiver.
-  public func copy(with zone: NSZone? = nil) -> Any {
-    ObservableProxy(object: wrappedValue)
+  
+  private func bind(publisher: AnyPublisher<AnyPropertyChangeEvent, Never>) {
+    subscriptions.insert(publisher.sink { [weak self] in
+      self?.objectWillChange.send()
+      guard $0.keyPath != nil else { return }
+      self?.propertyDidChange.send($0)
+    })
   }
 
   /// Subclasses to override this method.
   /// - note: Remember to invoke the `super` implementation.
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
-    objectWillChange.send()
-    propertyDidChange.send(AnyPropertyChangeEvent(object: wrappedValue, keyPath: keyPath))
-    // Subclasses to implement this method.
+    objectDidChange.send(AnyPropertyChangeEvent(object: wrappedValue, keyPath: keyPath))
   }
   
   open func get<V>(keyPath: KeyPath<T, V>) -> V {
@@ -54,6 +96,9 @@ open class ObservableProxy<T>:
     didSetValue(keyPath: keyPath, value: value)
   }
   
+  public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
+    get { get(keyPath: keyPath) }
+  }
   public subscript<V>(dynamicMember keyPath: WritableKeyPath<T, V>) -> V {
     get { get(keyPath: keyPath) }
     set { set(keyPath: keyPath, value: newValue) }
@@ -81,17 +126,18 @@ extension ObservableProxy: Identifiable where T: Identifiable {
 extension ObservableProxy where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagatePropertyObservableObject() {
-    propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
-      self?.propertyDidChange.send(change)
-    }
+    subscriptions.insert(wrappedValue.propertyDidChange.sink { [weak self] change in
+      self?.objectDidChange.send(change)
+    })
   }
 }
 
 extension ObservableProxy where T: ObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func propagateObservableObject() {
-    objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
-      self?.objectWillChange.send()
-    }
+    subscriptions.insert(wrappedValue.objectWillChange.sink { [weak self] _ in
+      guard let self = self else { return }
+      self.objectDidChange.send(AnyPropertyChangeEvent(object: self.wrappedValue, keyPath: nil))
+    })
   }
 }

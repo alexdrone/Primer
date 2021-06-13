@@ -16,7 +16,6 @@ import Combine
 ///
 @dynamicMemberLookup
 open class ReadOnly<T>:
-  AnySubscription,
   ObservableObject,
   PropertyObservableObject {
   // Observable internals.

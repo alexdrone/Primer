@@ -6,14 +6,6 @@ public protocol PropertyObservableObject: AnyObject {
   var propertyDidChange: PassthroughSubject<AnyPropertyChangeEvent, Never> { get }
 }
 
-public protocol AnySubscription: AnyObject {
-  /// Used to subscribe to any `ObservableObject`.
-  var objectWillChangeSubscriber: Cancellable? { get set }
-  
-  /// Used to subscribe to any `PropertyObservableObject`.
-  var propertyDidChangeSubscriber: Cancellable? { get set }
-}
-
 /// Represent an object mutation.
 public struct AnyPropertyChangeEvent {
   /// The proxy's wrapped value.

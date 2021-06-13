@@ -8,14 +8,14 @@ final class Tests: XCTestCase {
   var subscriber: Cancellable?
 
   func testImmutableProxy() {
-    let proxy = ReadOnly(of: TestData())
+    let proxy = ReadOnly(object: TestData())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
   }
 
   func testMutableProxy() {
-    var proxy = ObservableProxy(of: TestData())
+    let proxy = ObservableProxy(object: TestData())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -46,7 +46,7 @@ final class Tests: XCTestCase {
   }
 
   func testProxy() {
-    var proxy = ObservableProxy(of: TestData())
+    let proxy = ObservableProxy(object: TestData())
     let expectation = XCTestExpectation(description: "didChangeEvent")
     subscriber
       = proxy.propertyDidChange.sink { change in
