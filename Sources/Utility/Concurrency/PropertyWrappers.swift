@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Atomic
 
 @propertyWrapper
-public final class LockAtomic<L: Locking, T>: UnsafeSendable {
+public final class LockAtomic<L: Locking, T>: UncheckedSendable {
   private let lock: L
   private var value: T
 
@@ -43,7 +43,7 @@ public final class LockAtomic<L: Locking, T>: UnsafeSendable {
 // MARK: - SyncDispatchQueueAtomic
 
 @propertyWrapper
-public final class SyncDispatchQueueAtomic<T>: UnsafeSendable {
+public final class SyncDispatchQueueAtomic<T>: UncheckedSendable {
   private let queue: DispatchQueue
   private var value: T
   private let concurrentReads: Bool
@@ -76,7 +76,7 @@ public final class SyncDispatchQueueAtomic<T>: UnsafeSendable {
 // MARK: - ReadersWriterAtomic
 
 @propertyWrapper
-public final class ReadersWriterAtomic<T>: UnsafeSendable {
+public final class ReadersWriterAtomic<T>: UncheckedSendable {
   private let lock = ReadersWriterLock()
   private var value: T
 

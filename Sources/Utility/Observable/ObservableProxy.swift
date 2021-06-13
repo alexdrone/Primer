@@ -1,57 +1,81 @@
 import Foundation
 import Combine
 
-/// Creates an observable Proxy for the object passed as argument.
+/// Creates an observable proxy for the object passed as argument.
+///
+/// Mutations of the wrapped object performed via `get`, `set` or the dynamic keypath subscript
+/// are thread-safe and trigger an event through the `objectWillChangeSubscriber` and
+/// `propertyDidChangeSubscriber` streams.
 @dynamicMemberLookup
-@propertyWrapper
 open class ObservableProxy<T>:
-  ProxyProtocol,
   AnySubscription,
   ObservableObject,
   PropertyObservableObject,
-  NSCopying {
+  NSCopying,
+  UncheckedSendable {
   // Observable internals.
   public var objectWillChangeSubscriber: Cancellable?
   public var propertyDidChangeSubscriber: Cancellable?
   public var propertyDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
 
-  open var wrappedValue: T
+  private var wrappedValue: T
+  
+  /// Synchronize the access to the wrapped object.
+  private let objectLock = ReadersWriterLock()
 
   /// Constructs a new proxy for the object passed as argument.
-  init(of object: T) {
+  public init(object: T) {
     wrappedValue = object
   }
 
   /// Returns a new instance that’s a copy of the receiver.
   public func copy(with zone: NSZone? = nil) -> Any {
-    return ObservableProxy(of: wrappedValue)
+    ObservableProxy(object: wrappedValue)
   }
-
-  /// Subclasses to override this method.
-  /// - note: Remember to invoke the `super` implementation.
-  open func willSetValue<V>(keyPath: KeyPath<T, V>, value: V) { }
 
   /// Subclasses to override this method.
   /// - note: Remember to invoke the `super` implementation.
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
     objectWillChange.send()
-    propertyDidChange.send(AnyPropertyChangeEvent(object: self.wrappedValue, keyPath: keyPath))
+    propertyDidChange.send(AnyPropertyChangeEvent(object: wrappedValue, keyPath: keyPath))
     // Subclasses to implement this method.
+  }
+  
+  open func get<V>(keyPath: KeyPath<T, V>) -> V {
+    objectLock.withReadLock {
+      self.wrappedValue[keyPath: keyPath]
+    }
+  }
+  
+  open func set<V>(keyPath: WritableKeyPath<T, V>, value: V) {
+    objectLock.withWriteLock {
+      self.wrappedValue[keyPath: keyPath] = value
+    }
+    didSetValue(keyPath: keyPath, value: value)
+  }
+  
+  public subscript<V>(dynamicMember keyPath: WritableKeyPath<T, V>) -> V {
+    get { get(keyPath: keyPath) }
+    set { set(keyPath: keyPath, value: newValue) }
   }
 }
 
 extension ObservableProxy: Equatable where T: Equatable {
-  /// Two `MutableObservableProxy` are considered equal if they are proxies for the same object.
   public static func == (lhs: ObservableProxy<T>, rhs: ObservableProxy<T>) -> Bool {
-    return lhs.wrappedValue == rhs.wrappedValue
+    lhs.wrappedValue == rhs.wrappedValue
   }
 }
 
 extension ObservableProxy: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
-    return wrappedValue.hash(into: &hasher)
+    wrappedValue.hash(into: &hasher)
   }
+}
+
+extension ObservableProxy: Identifiable where T: Identifiable {
+  /// The stable identity of the entity associated with this instance.
+  public var id: T.ID { wrappedValue.id }
 }
 
 extension ObservableProxy where T: PropertyObservableObject {
@@ -68,29 +92,6 @@ extension ObservableProxy where T: ObservableObject {
   func propagateObservableObject() {
     objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
       self?.objectWillChange.send()
-    }
-  }
-}
-
-// MARK: - Internal
-
-public protocol ProxyProtocol: ReadOnlyProtocol {
-  /// The proxied object is about to be mutated with value `value`.
-  func willSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
-  /// The proxied object was mutated with value `value`.
-  func didSetValue<V>(keyPath: KeyPath<ProxyType, V>, value: V)
-}
-
-extension ProxyProtocol {
-  /// Extends `ReadOnlyProtocol` by adding the the `set` subscript for `WritableKeyPath`s.
-  public subscript<T>(dynamicMember keyPath: WritableKeyPath<ProxyType, T>) -> T {
-    get {
-      return wrappedValue[keyPath: keyPath]
-    }
-    set {
-      willSetValue(keyPath: keyPath, value: newValue)
-      wrappedValue[keyPath: keyPath] = newValue
-      didSetValue(keyPath: keyPath, value: newValue)
     }
   }
 }

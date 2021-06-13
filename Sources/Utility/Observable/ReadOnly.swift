@@ -15,9 +15,7 @@ import Combine
 /// ```
 ///
 @dynamicMemberLookup
-@propertyWrapper
 open class ReadOnly<T>:
-  ReadOnlyProtocol,
   AnySubscription,
   ObservableObject,
   PropertyObservableObject {
@@ -26,11 +24,16 @@ open class ReadOnly<T>:
   public var propertyDidChangeSubscriber: Cancellable?
   public var propertyDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
 
-  open var wrappedValue: T
+  private let wrappedValue: T
 
   /// Constructs a new read-only proxy for the object passed as argument.
-  init(of object: T) {
+  init(object: T) {
     wrappedValue = object
+  }
+  
+  /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.
+  public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
+    wrappedValue[keyPath: keyPath]
   }
 }
 
@@ -52,17 +55,3 @@ extension ReadOnly where T: ObservableObject {
   }
 }
 
-// MARK: - Internal
-
-public protocol ReadOnlyProtocol {
-  associatedtype ProxyType
-  /// The wrapped proxied object.
-  var wrappedValue: ProxyType { get set }
-}
-
-extension ReadOnlyProtocol {
-  /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.
-  public subscript<V>(dynamicMember keyPath: KeyPath<ProxyType, V>) -> V {
-    return wrappedValue[keyPath: keyPath]
-  }
-}

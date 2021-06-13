@@ -15,19 +15,17 @@ let package = Package(
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
       .library(
         name: "Utility",
-        targets: ["Utility", "CxxUtility"]),
+        targets: ["Utility"]),
     ],
     dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        // .package(url: /* package url */, from: "1.0.0"),
+      .package(url: "https://github.com/apple/swift-atomics.git", from: "0.0.3")
     ],
     targets: [
       .target(
-        name: "CxxUtility",
-        path: "Sources/CxxUtility/"),
-      .target(
         name: "Utility",
-        dependencies: ["CxxUtility"],
+        dependencies: [
+          .product(name: "Atomics", package: "swift-atomics")
+        ],
         path: "Sources/Utility//"),
       .testTarget(
         name: "UtilityTests",

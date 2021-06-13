@@ -58,26 +58,11 @@ final class Tests: XCTestCase {
     wait(for: [expectation], timeout: 1)
   }
   
-  func testLockfreeAtomic() {
-    var atomicInt = LockfreeAtomicStorage(wrappedValue: 10)
-    XCTAssertTrue(atomicInt.compareAndExchange(expected: 10, desired: 12))
-    XCTAssert(atomicInt.value == 12)
-    XCTAssertFalse(atomicInt.compareAndExchange(expected: 5, desired: 10))
-    XCTAssert(atomicInt.value == 12)
-    
-    var progress = AtomicFlag(value: TestEnum.ongoing)
-    XCTAssertTrue(progress.compareAndExchange(expected: .ongoing, desired: .finished))
-    XCTAssert(progress.value == .finished)
-    progress.value = .started
-    XCTAssert(progress.value == .started)
-  }
-
   static var allTests = [
     ("testImmutableProxy", testImmutableProxy),
     ("testMutableProxy", testMutableProxy),
     ("testProxyBuilder", testProxyBuilder),
     ("testProxy", testProxy),
-    ("testLockfreeAtomic", testLockfreeAtomic),
   ]
 }
 

@@ -22,7 +22,7 @@ import Foundation
 @dynamicMemberLookup
 public struct Partial<T> {
   /// The construction closure invoked by `build()`.
-  public let createInstanceClosure: (Partial<T>) -> Result<T, Error>
+  public let create: (Partial<T>) -> Result<T, Error>
   
   /// All of the values currently set in this partial.
   private var keypathToValueMap: [AnyKeyPath: Any] = [:]
@@ -30,8 +30,8 @@ public struct Partial<T> {
   /// All of the `set` commands that will performed once the object is built.
   private var keypathToSetValueMap: [AnyKeyPath: (inout T) -> Void] = [:]
   
-  public init(_ createInstanceClosure: @escaping (Partial<T>) -> Result<T, Error>) {
-    self.createInstanceClosure = createInstanceClosure
+  public init(_ create: @escaping (Partial<T>) -> Result<T, Error>) {
+    self.create = create
   }
 
   /// Use `@dynamicMemberLookup` keypath subscript to store the object configuration and postpone
@@ -67,7 +67,7 @@ public struct Partial<T> {
   
   /// Build the target object by using the `createInstanceClosure` passed to the constructor.
   public func build() -> Result<T, Error> {
-    let result = createInstanceClosure(self)
+    let result = create(self)
     switch result {
     case .success(var obj):
       for (_, setValueClosure) in keypathToSetValueMap {

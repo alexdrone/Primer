@@ -24,7 +24,7 @@ public struct AnyPropertyChangeEvent {
   
   /// Returns a new `allChanged` event.
   public static func allChangedEvent<T>(object: T) -> AnyPropertyChangeEvent {
-    return AnyPropertyChangeEvent(object: object, keyPath: nil)
+    AnyPropertyChangeEvent(object: object, keyPath: nil)
   }
 
   /// This event signal that the whole object changed and all of its properties should be marked

@@ -65,7 +65,7 @@ final class UnfairLock: Locking {
 
 /// A readers-writer lock provided by the platform implementation of the POSIX Threads standard.
 /// Read more: https://en.wikipedia.org/wiki/POSIX_Threads
-public final class ReadersWriterLock {
+public final class ReadersWriterLock: UncheckedSendable {
   private var rwlock: UnsafeMutablePointer<pthread_rwlock_t>
   
   public init() {
