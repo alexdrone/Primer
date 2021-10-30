@@ -12,15 +12,15 @@ open class DictionaryEncoder: Encoder {
   public init() {}
 
   open func container<Key: CodingKey>(keyedBy type: Key.Type) -> KeyedEncodingContainer<Key> {
-    return KeyedEncodingContainer(KeyedContainer<Key>(encoder: self, codingPath: codingPath))
+    KeyedEncodingContainer(KeyedContainer<Key>(encoder: self, codingPath: codingPath))
   }
 
   open func unkeyedContainer() -> UnkeyedEncodingContainer {
-    return UnkeyedContanier(encoder: self, codingPath: codingPath)
+    UnkeyedContanier(encoder: self, codingPath: codingPath)
   }
 
   open func singleValueContainer() -> SingleValueEncodingContainer {
-    return SingleValueContanier(encoder: self, codingPath: codingPath)
+    SingleValueContanier(encoder: self, codingPath: codingPath)
   }
 
   private func box<T: Encodable>(_ value: T) throws -> Any {
@@ -174,13 +174,9 @@ extension DictionaryEncoder {
       return UnkeyedContanier(encoder: encoder, codingPath: codingPath)
     }
 
-    func superEncoder() -> Encoder {
-      return encoder
-    }
+    func superEncoder() -> Encoder { encoder }
 
-    func superEncoder(forKey key: Key) -> Encoder {
-      return encoder
-    }
+    func superEncoder(forKey key: Key) -> Encoder { encoder }
   }
 
   private class UnkeyedContanier: UnkeyedEncodingContainer {
@@ -519,82 +515,82 @@ extension DictionaryDecoder {
 
     func decodeNil(
       forKey key: Key
-    ) throws -> Bool { throw decoder.notFound(key: key) }
+    ) throws -> Bool { decoder.notFound(key: key) }
 
     func decode(
       _ type: Bool.Type,
       forKey key: Key
-    ) throws -> Bool { return try _decode(type, forKey: key) }
+    ) throws -> Bool { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Int.Type,
       forKey key: Key
-    ) throws -> Int { return try _decode(type, forKey: key) }
+    ) throws -> Int { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Int8.Type,
       forKey key: Key
-    ) throws -> Int8 { return try _decode(type, forKey: key) }
+    ) throws -> Int8 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Int16.Type,
       forKey key: Key
-    ) throws -> Int16 { return try _decode(type, forKey: key) }
+    ) throws -> Int16 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Int32.Type,
       forKey key: Key
-    ) throws -> Int32 { return try _decode(type, forKey: key) }
+    ) throws -> Int32 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Int64.Type,
       forKey key: Key
-    ) throws -> Int64 { return try _decode(type, forKey: key) }
+    ) throws -> Int64 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: UInt.Type,
       forKey key: Key
-    ) throws -> UInt { return try _decode(type, forKey: key) }
+    ) throws -> UInt { try _decode(type, forKey: key) }
 
     func decode(
       _ type: UInt8.Type,
       forKey key: Key
-    ) throws -> UInt8 { return try _decode(type, forKey: key) }
+    ) throws -> UInt8 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: UInt16.Type,
       forKey key: Key
-    ) throws -> UInt16 { return try _decode(type, forKey: key) }
+    ) throws -> UInt16 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: UInt32.Type,
       forKey key: Key
-    ) throws -> UInt32 { return try _decode(type, forKey: key) }
+    ) throws -> UInt32 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: UInt64.Type,
       forKey key: Key
-    ) throws -> UInt64 { return try _decode(type, forKey: key) }
+    ) throws -> UInt64 { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Float.Type,
       forKey key: Key
-    ) throws -> Float { return try _decode(type, forKey: key) }
+    ) throws -> Float { try _decode(type, forKey: key) }
 
     func decode(
       _ type: Double.Type,
       forKey key: Key
-    ) throws -> Double { return try _decode(type, forKey: key) }
+    ) throws -> Double { try _decode(type, forKey: key) }
 
     func decode(
       _ type: String.Type,
       forKey key: Key
-    ) throws -> String { return try _decode(type, forKey: key) }
+    ) throws -> String { try _decode(type, forKey: key) }
 
     func decode<T: Decodable>(
       _ type: T.Type,
       forKey key: Key
-    ) throws -> T { return try _decode(type, forKey: key) }
+    ) throws -> T { try _decode(type, forKey: key) }
 
     func nestedContainer<NestedKey>(
       keyedBy type: NestedKey.Type,
@@ -772,11 +768,11 @@ final class Storage {
   private(set) var containers: [Any] = []
 
   var count: Int {
-    return containers.count
+    containers.count
   }
 
   var last: Any? {
-    return containers.last
+    containers.last
   }
 
   func push(container: Any) {
