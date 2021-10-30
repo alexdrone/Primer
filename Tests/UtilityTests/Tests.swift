@@ -1,4 +1,5 @@
 import Combine
+import SwiftUI
 import XCTest
 
 @testable import Utility
@@ -15,7 +16,8 @@ final class Tests: XCTestCase {
   }
 
   func testMutableProxy() {
-    let proxy = ObservableProxy(object: TestData())
+    var testData = TestData()
+    let proxy = ObservableStore(object: Binding(get: { testData }, set: { testData = $0 }))
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -46,7 +48,8 @@ final class Tests: XCTestCase {
   }
 
   func testProxy() {
-    let proxy = ObservableProxy(object: TestData())
+    var testData = TestData()
+    let proxy = ObservableStore(object: Binding(get: { testData }, set: { testData = $0 }))
     let expectation = XCTestExpectation(description: "didChangeEvent")
     subscriber
       = proxy.propertyDidChange.sink { change in
@@ -55,7 +58,7 @@ final class Tests: XCTestCase {
         }
       }
     proxy.label = "Change"
-    wait(for: [expectation], timeout: 1)
+    wait(for: [expectation], timeout: 10)
   }
   
   static var allTests = [

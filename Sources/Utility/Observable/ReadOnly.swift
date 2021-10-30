@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// Constructs a type with all properties of the given generic type `T` set to readonly,
-/// meaning the properties of the constructed type cannot be reassigned.
+/// meaning that the properties of the constructed type cannot be reassigned.
 ///
 /// - note: A read-only object can propagate change events if the wrapped type ia an
 /// `ObservableObject` by calling `propagateObservableObject` at construction time.
@@ -15,9 +15,7 @@ import Combine
 /// ```
 ///
 @dynamicMemberLookup
-open class ReadOnly<T>:
-  ObservableObject,
-  PropertyObservableObject {
+open class ReadOnly<T>: ObservableObject, PropertyObservableObject {
   // Observable internals.
   public var objectWillChangeSubscriber: Cancellable?
   public var propertyDidChangeSubscriber: Cancellable?
@@ -28,6 +26,10 @@ open class ReadOnly<T>:
   /// Constructs a new read-only proxy for the object passed as argument.
   init(object: T) {
     wrappedValue = object
+  }
+  
+  public func read<V>(keyPath: KeyPath<T, V>) -> V {
+    wrappedValue[keyPath: keyPath]
   }
   
   /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.

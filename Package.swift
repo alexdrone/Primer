@@ -18,13 +18,15 @@ let package = Package(
         targets: ["Utility"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/apple/swift-atomics.git", from: "0.0.3")
+      .package(url: "https://github.com/apple/swift-atomics.git", from: "0.0.3"),
+      .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
     ],
     targets: [
       .target(
         name: "Utility",
         dependencies: [
-          .product(name: "Atomics", package: "swift-atomics")
+          .product(name: "Atomics", package: "swift-atomics"),
+          .product(name: "Logging", package: "swift-log")
         ],
         path: "Sources/Utility//"),
       .testTarget(
