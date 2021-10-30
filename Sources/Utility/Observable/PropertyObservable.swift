@@ -14,9 +14,12 @@ public struct AnyPropertyChangeEvent {
   /// The mutated keyPath.
   public let keyPath: AnyKeyPath?
   
+  /// Optional debug label for this event.
+  public let debugLabel: String?
+  
   /// Returns a new `allChanged` event.
   public static func allChangedEvent<T>(object: T) -> AnyPropertyChangeEvent {
-    AnyPropertyChangeEvent(object: object, keyPath: nil)
+    AnyPropertyChangeEvent(object: object, keyPath: nil, debugLabel: "*")
   }
 
   /// This event signal that the whole object changed and all of its properties should be marked

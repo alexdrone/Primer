@@ -12,7 +12,6 @@ import SwiftUI
 open class ObservableStore<T>: ObservableObject, PropertyObservableObject, UncheckedSendable {
   
   public struct Options<S: Scheduler> {
-
     public enum SchedulingStrategy {
       /// The time the publisher should wait before publishing an element.
       case debounce(Double)
@@ -37,7 +36,9 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
   
   /// Subsystem logger.
   public private(set) lazy var logger: Logger = {
-    let label = "ObservableStore.\(type(of: T.self)).\(Unmanaged.passUnretained(self).toOpaque())"
+    let type = String(describing: T.self)
+    let pointer = String(format:"%02x", Unmanaged.passUnretained(self).toOpaque().hashValue)
+    let label = "\(type)(\(pointer))"
     return Logger(label: label)
   }()
 
@@ -47,7 +48,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
   public var projectedValue: ObservableStore<T> { self }
 
   /// Internal subject used to propagate `objectWillChange` and `propertyDidChange` events.
-  private var objectDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
+  private var objectDidChange = PassthroughSubject<Void, Never>()
   
   private var subscriptions = Set<AnyCancellable>()
   private var objectSubscriptions = Set<AnyCancellable>()
@@ -61,40 +62,59 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     self.object = object
     self.objectLock = objectLock
     
-    var publisher: AnyPublisher = objectDidChange.eraseToAnyPublisher()
+    var objectWillChange: AnyPublisher = objectDidChange.eraseToAnyPublisher()
+    let propertyDidChange: AnyPublisher = propertyDidChange.eraseToAnyPublisher()
+    
     switch options.schedulingStrategy {
     case .debounce(let seconds):
-      publisher = publisher
+      objectWillChange = objectWillChange
         .debounce(for: .seconds(seconds), scheduler: options.scheduler)
         .eraseToAnyPublisher()
     case .throttle(let seconds):
-      publisher = publisher
+      objectWillChange = objectWillChange
         .throttle(for: .seconds(seconds), scheduler: options.scheduler, latest: true)
         .eraseToAnyPublisher()
     case .none:
-      publisher = publisher
+      objectWillChange = objectWillChange
         .receive(on: options.scheduler)
         .eraseToAnyPublisher()
     }
-    bind(publisher: publisher)
+
+    bind(objectWillChange: objectWillChange, propertyDidChange: propertyDidChange)
   }
   
-  public init(object: Binding<T>) {
+  public init(
+    object: Binding<T>,
+    objectLock: Locking = UnfairLock()
+  ) {
     self.object = object
-    self.objectLock = UnfairLock()
-    bind(publisher: objectDidChange.eraseToAnyPublisher())
+    self.objectLock = objectLock
+    
+    let objectWillChange: AnyPublisher = objectDidChange.eraseToAnyPublisher()
+    let propertyDidChange: AnyPublisher = propertyDidChange.eraseToAnyPublisher()
+    bind(objectWillChange: objectWillChange, propertyDidChange: propertyDidChange)
   }
   
-  private func bind(publisher: AnyPublisher<AnyPropertyChangeEvent, Never>) {
-    subscriptions.insert(publisher.sink { [weak self] in
+  private func bind(
+    objectWillChange: AnyPublisher<Void, Never>,
+    propertyDidChange: AnyPublisher<AnyPropertyChangeEvent, Never>
+  ) {
+    subscriptions.insert(propertyDidChange.sink { [weak self] in
+      self?.objectDidChange.send()
+      let property = $0.debugLabel != nil ? ".\($0.debugLabel!)" : "*"
+      self?.logger.info("send { propertyDidChange(\(property)) }");
+    });
+    subscriptions.insert(objectWillChange.sink { [weak self] in
       self?.objectWillChange.send()
-      guard $0.keyPath != nil else { return }
-      self?.propertyDidChange.send($0)
+      self?.logger.info("send { objectWillChange }");
     })
   }
   
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
-    objectDidChange.send(AnyPropertyChangeEvent(object: object.wrappedValue, keyPath: keyPath))
+    propertyDidChange.send(AnyPropertyChangeEvent(
+      object: object.wrappedValue,
+      keyPath: keyPath,
+      debugLabel: keyPath.readableFormat))
   }
   
   public func read<V>(keyPath: KeyPath<T, V>) -> V {
@@ -119,17 +139,18 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     objectLock.withLock {
       mutation(&object.wrappedValue)
     }
-    logger.info("mutation @ [\(label)]")
-    objectDidChange.send(AnyPropertyChangeEvent(object: object.wrappedValue, keyPath: nil))
+    logger.info("mutate @ [\(label)]")
+    objectDidChange.send()
   }
   
   /// Replace the wrapped object with another instance.
-  public func replace(object: T) {
+  public func replace(object: T, label: String = #function) {
     objectSubscriptions = Set<AnyCancellable>()
     objectLock.withLock {
       self.object.wrappedValue = object
     }
-    objectDidChange.send(AnyPropertyChangeEvent(object: object, keyPath: nil))
+    logger.info("replace @ [\(label)]")
+    objectDidChange.send()
   }
   
   public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
@@ -137,7 +158,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
   }
   public subscript<V>(dynamicMember keyPath: WritableKeyPath<T, V>) -> V {
     get { read(keyPath: keyPath) }
-    set { set(keyPath: keyPath, value: newValue) }
+    set { set(keyPath: keyPath, value: newValue, label: "dynamic_member") }
   }
 }
 
@@ -163,7 +184,7 @@ extension ObservableStore where T: PropertyObservableObject {
   /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
   func trampolinePropertyObservablePublisher() {
     objectSubscriptions.insert(object.wrappedValue.propertyDidChange.sink { [weak self] change in
-      self?.objectDidChange.send(change)
+      self?.propertyDidChange.send(change)
     })
   }
 }
@@ -173,8 +194,7 @@ extension ObservableStore where T: ObservableObject {
   func trampolineObservableObjectPublisher() {
     objectSubscriptions.insert(object.wrappedValue.objectWillChange.sink { [weak self] _ in
       guard let self = self else { return }
-      self.objectDidChange.send(
-        AnyPropertyChangeEvent(object: self.object.wrappedValue, keyPath: nil))
+      self.objectDidChange.send()
     })
   }
 }
