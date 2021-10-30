@@ -1,6 +1,7 @@
 import Foundation
 import Logging
 import Combine
+#if canImport(SwiftUI)
 import SwiftUI
 
 /// Creates an observable proxy for the object passed as argument.
@@ -18,6 +19,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
       /// The interval at which to find and emit either the most recent expressed in the time system
       /// of the scheduler.
       case throttle(Double)
+      /// Events are being emitted as they're sent through the publisher.
       case none
     }
     
@@ -44,8 +46,11 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
 
   /// The wrapped object.
   private var object: Binding<T>
+
+  /// The underlying value referenced by the binding variable.
+  /// This property provides primary access to the value's data. However, you
+  /// don't access `wrappedValue` directly.
   public var wrappedValue: T { object.wrappedValue }
-  public var projectedValue: ObservableStore<T> { self }
 
   /// Internal subject used to propagate `objectWillChange` and `propertyDidChange` events.
   private var objectDidChange = PassthroughSubject<Void, Never>()
@@ -95,6 +100,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     bind(objectWillChange: objectWillChange, propertyDidChange: propertyDidChange)
   }
   
+  /// Initialize the publisher bindings.
   private func bind(
     objectWillChange: AnyPublisher<Void, Never>,
     propertyDidChange: AnyPublisher<AnyPropertyChangeEvent, Never>
@@ -110,6 +116,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     })
   }
   
+  /// Notifies the subscribers for the wrapped object changes.
   open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
     propertyDidChange.send(AnyPropertyChangeEvent(
       object: object.wrappedValue,
@@ -117,12 +124,14 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
       debugLabel: keyPath.readableFormat))
   }
   
-  public func read<V>(keyPath: KeyPath<T, V>) -> V {
+  /// Read the value of the property for the wrapped object.
+  public func get<V>(keyPath: KeyPath<T, V>) -> V {
     objectLock.withLock {
       object.wrappedValue[keyPath: keyPath]
     }
   }
   
+  /// Sets a new value for the property at the given keypath in the wrapped object.
   public func set<V>(keyPath: WritableKeyPath<T, V>, value: V, label: String = #function) {
     let oldValue = objectLock.withLock { () -> V in 
       let oldValue = object.wrappedValue[keyPath: keyPath]
@@ -135,6 +144,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     didSetValue(keyPath: keyPath, value: value)
   }
   
+  /// Perfom a batch update to the wrapped object.
   public func mutate(_ mutation: (inout T) -> Void, label: String = #function) {
     objectLock.withLock {
       mutation(&object.wrappedValue)
@@ -143,24 +153,27 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     objectDidChange.send()
   }
   
-  /// Replace the wrapped object with another instance.
-  public func replace(object: T, label: String = #function) {
-    objectSubscriptions = Set<AnyCancellable>()
-    objectLock.withLock {
-      self.object.wrappedValue = object
-    }
-    logger.info("replace @ [\(label)]")
-    objectDidChange.send()
+  /// Returns a binding to one of the properties of the wrapped object.
+  ///
+  /// - Note: The returned binding can itself be used as the argument for a new
+  /// `ObservableStore` instance.
+  public func binding<V>(keyPath: WritableKeyPath<T, V>) -> Binding<V> {
+    Binding(
+      get: { self.get(keyPath: keyPath) },
+      set: { self.set(keyPath: keyPath, value: $0) })
   }
   
   public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
-    get { read(keyPath: keyPath) }
+    get { get(keyPath: keyPath) }
   }
+
   public subscript<V>(dynamicMember keyPath: WritableKeyPath<T, V>) -> V {
-    get { read(keyPath: keyPath) }
+    get { get(keyPath: keyPath) }
     set { set(keyPath: keyPath, value: newValue, label: "dynamic_member") }
   }
 }
+
+// MARK: - Extensions
 
 extension ObservableStore: Equatable where T: Equatable {
   public static func == (lhs: ObservableStore<T>, rhs: ObservableStore<T>) -> Bool {
@@ -198,3 +211,5 @@ extension ObservableStore where T: ObservableObject {
     })
   }
 }
+
+#endif

@@ -3,7 +3,6 @@ import Foundation
 // MARK: - Locking
 
 public protocol Locking {
-  
   init()
 
   /// Attempts to acquire a lock, blocking a thread’s execution until the lock can be acquired.

@@ -36,7 +36,6 @@ public final class LockAtomic<L: Locking, T>: UncheckedSendable {
     lock.unlock()
   }
 
-  /// The $-prefixed value.
   public var projectedValue: LockAtomic<L, T> { self }
 }
 
@@ -69,7 +68,6 @@ public final class SyncDispatchQueueAtomic<T>: UncheckedSendable {
     }
   }
 
-  /// The $-prefixed value.
   public var projectedValue: SyncDispatchQueueAtomic<T> { self }
 }
 
@@ -108,6 +106,5 @@ public final class ReadersWriterAtomic<T>: UncheckedSendable {
     }
   }
 
-  /// The $-prefixed value.
   public var projectedValue: ReadersWriterAtomic<T> { self }
 }
