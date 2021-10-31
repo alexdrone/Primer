@@ -16,12 +16,7 @@ import Combine
 ///
 @dynamicMemberLookup
 @propertyWrapper
-open class ReadOnly<T>: ObservableObject, PropertyObservableObject {
-  // Observable internals.
-  public var objectWillChangeSubscriber: Cancellable?
-  public var propertyDidChangeSubscriber: Cancellable?
-  public var propertyDidChange = PassthroughSubject<AnyPropertyChangeEvent, Never>()
-
+open class ReadOnly<T>: ObservableObject {
   public private(set) var wrappedValue: T
 
   /// Constructs a new read-only proxy for the object passed as argument.
@@ -36,25 +31,5 @@ open class ReadOnly<T>: ObservableObject, PropertyObservableObject {
   /// Use `@dynamicMemberLookup` keypath subscript to forward the value of the proxied object.
   public subscript<V>(dynamicMember keyPath: KeyPath<T, V>) -> V {
     wrappedValue[keyPath: keyPath]
-  }
-}
-
-//MARK: - Trampoline Publishers
-
-extension ReadOnly where T: PropertyObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy object.
-  func trampolinePropertyObservableObject() {
-    propertyDidChangeSubscriber = wrappedValue.propertyDidChange.sink { [weak self] change in
-      self?.propertyDidChange.send(change)
-    }
-  }
-}
-
-extension ReadOnly where T: ObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy object.
-  func trampolineObservableObject() {
-    objectWillChangeSubscriber = wrappedValue.objectWillChange.sink { [weak self] change in
-      self?.objectWillChange.send()
-    }
   }
 }
