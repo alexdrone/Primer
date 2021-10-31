@@ -1,4 +1,4 @@
-# Utility [![Swift](https://img.shields.io/badge/swift-5.1-orange.svg?style=flat)](#)
+# Primer [![Swift](https://img.shields.io/badge/swift-5.1-orange.svg?style=flat)](#)
 
 ### Assign
 
