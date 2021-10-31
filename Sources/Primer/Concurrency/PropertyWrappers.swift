@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Atomic
 
 @propertyWrapper
-public final class LockAtomic<L: Locking, T>: UncheckedSendable {
+public final class LockAtomic<L: Locking, T>: @unchecked Sendable {
   private let lock: L
   private var value: T
 
@@ -14,16 +14,14 @@ public final class LockAtomic<L: Locking, T>: UncheckedSendable {
 
   public var wrappedValue: T {
     get {
-      var value: T! = nil
-      lock.lock()
-      value = self.value
-      lock.unlock()
-      return value
+      lock.withLock {
+        value
+      }
     }
     set {
-      lock.lock()
-      self.value = newValue
-      lock.unlock()
+      lock.withLock {
+        value = newValue
+      }
     }
   }
 
@@ -31,9 +29,9 @@ public final class LockAtomic<L: Locking, T>: UncheckedSendable {
   /// This is especially useful to wrap index-subscripts in value type collections that
   /// otherwise would result in a call to get, a value copy and a subsequent call to set.
   public func mutate(_ block: (inout T) -> Void) {
-    lock.lock()
-    block(&value)
-    lock.unlock()
+    lock.withLock {
+      block(&value)
+    }
   }
 
   public var projectedValue: LockAtomic<L, T> { self }
@@ -42,7 +40,7 @@ public final class LockAtomic<L: Locking, T>: UncheckedSendable {
 // MARK: - SyncDispatchQueueAtomic
 
 @propertyWrapper
-public final class SyncDispatchQueueAtomic<T>: UncheckedSendable {
+public final class SyncDispatchQueueAtomic<T>: @unchecked Sendable {
   private let queue: DispatchQueue
   private var value: T
   private let concurrentReads: Bool
@@ -74,7 +72,7 @@ public final class SyncDispatchQueueAtomic<T>: UncheckedSendable {
 // MARK: - ReadersWriterAtomic
 
 @propertyWrapper
-public final class ReadersWriterAtomic<T>: UncheckedSendable {
+public final class ReadersWriterAtomic<T>: @unchecked Sendable {
   private let lock = ReadersWriterLock()
   private var value: T
 
@@ -84,11 +82,9 @@ public final class ReadersWriterAtomic<T>: UncheckedSendable {
 
   public var wrappedValue: T {
     get {
-      var value: T! = nil
       lock.withReadLock {
-        value = self.value
+        value
       }
-      return value
     }
     set {
       lock.withWriteLock {

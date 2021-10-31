@@ -2,22 +2,22 @@ import Combine
 import SwiftUI
 import XCTest
 
-@testable import Utility
+@testable import Primer
 
 @available(OSX 10.15, iOS 13.0, *)
-final class Tests: XCTestCase {
+final class BasicTests: XCTestCase {
   var subscriber: Cancellable?
 
-  func testImmutableProxy() {
+  func testReadOnly() {
     let proxy = ReadOnly(object: TestData())
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
   }
 
-  func testMutableProxy() {
+  func testStore() {
     var testData = TestData()
-    let proxy = ObservableStore(object: Binding(get: { testData }, set: { testData = $0 }))
+    let proxy = Store(object: Binding(get: { testData }, set: { testData = $0 }))
     XCTAssert(proxy.constant == 1337)
     XCTAssert(proxy.label == "Initial")
     XCTAssert(proxy.number == 42)
@@ -27,7 +27,7 @@ final class Tests: XCTestCase {
     XCTAssert(proxy.number == 1)
   }
 
-  func testProxyBuilder() {
+  func testPartial() {
     struct Todo { var title: String; var description: String }
     var partial = Partial { .success(Todo(
       title: $0.get(\Todo.title, default: "Untitled"),
@@ -47,9 +47,9 @@ final class Tests: XCTestCase {
     XCTAssert(todo.description == "Another Descrition")
   }
 
-  func testProxy() {
+  func testStorePropertyDidChange() {
     var testData = TestData()
-    let proxy = ObservableStore(object: Binding(get: { testData }, set: { testData = $0 }))
+    let proxy = Store(object: Binding(get: { testData }, set: { testData = $0 }))
     let expectation = XCTestExpectation(description: "didChangeEvent")
     subscriber
       = proxy.propertyDidChange.sink { change in
@@ -60,13 +60,6 @@ final class Tests: XCTestCase {
     proxy.label = "Change"
     wait(for: [expectation], timeout: 10)
   }
-  
-  static var allTests = [
-    ("testImmutableProxy", testImmutableProxy),
-    ("testMutableProxy", testMutableProxy),
-    ("testProxyBuilder", testProxyBuilder),
-    ("testProxy", testProxy),
-  ]
 }
 
 // MARK: - Mocks
@@ -76,9 +69,7 @@ struct TestData {
   var label = "Initial"
   var number = 42
   
-  init() {
-  }
-  
+  init() {}
   init(label: String, number: Int) {
     self.label = label
     self.number = number

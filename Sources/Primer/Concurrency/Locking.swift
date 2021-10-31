@@ -3,22 +3,51 @@ import Foundation
 // MARK: - Locking
 
 public protocol Locking {
+  /// Create a new lock.
   init()
 
-  /// Attempts to acquire a lock, blocking a thread’s execution until the lock can be acquired.
+  /// Acquire the lock.
+  ///
+  /// Whenever possible, consider using `withLock` instead of this method and
+  /// `unlock`, to simplify lock handling.
   func lock()
   
-  /// Relinquishes a previously acquired lock.
+  /// Release the lock.
+  ///
+  /// Whenver possible, consider using `withLock` instead of this method and
+  /// `lock`, to simplify lock handling.
   func unlock()
 }
 
-public extension Locking {
-  func withLock<T>(body: () throws -> T) rethrows -> T {
+extension Locking {
+  /// Acquire the lock for the duration of the given block.
+  ///
+  /// This convenience method should be preferred to `lock` and `unlock` in
+  /// most situations, as it ensures that the lock will be released regardless
+  /// of how `body` exits.
+  @inlinable
+  public func withLock<T>(_ body: () throws -> T) rethrows -> T {
     defer {
       unlock()
     }
     lock()
     return try body()
+  }
+  
+  /// Specialise Void return (for performance).
+  @inlinable
+  public func withLockVoid(_ body: () throws -> Void) rethrows -> Void {
+    try self.withLock(body)
+  }
+  
+  /// Async variant.
+  @inlinable
+  public func withLock<T>(_ body: () async throws -> T) async rethrows -> T {
+    defer {
+      unlock()
+    }
+    lock()
+    return try await body()
   }
 }
 
@@ -78,7 +107,7 @@ public final class UnfairLock: Locking {
 
 /// A readers-writer lock provided by the platform implementation of the POSIX Threads standard.
 /// Read more: https://en.wikipedia.org/wiki/POSIX_Threads
-public final class ReadersWriterLock: UncheckedSendable {
+public final class ReadersWriterLock: @unchecked Sendable {
   private var rwlock: UnsafeMutablePointer<pthread_rwlock_t>
   
   public init() {

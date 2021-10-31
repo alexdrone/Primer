@@ -4,15 +4,17 @@ import Combine
 #if canImport(SwiftUI)
 import SwiftUI
 
-/// Creates an observable proxy for the object passed as argument.
+/// Creates an observable store that acts as a proxy for the object passed as argument.
 ///
 /// Mutations of the wrapped object performed via `get`, `set` or the dynamic keypath subscript
 /// are thread-safe and trigger an event through the `objectWillChangeSubscriber` and
 /// `propertyDidChangeSubscriber` streams.
 @dynamicMemberLookup
-open class ObservableStore<T>: ObservableObject, PropertyObservableObject, UncheckedSendable {
+@propertyWrapper
+final public class Store<T>: ObservableObject, PropertyObservableObject, @unchecked Sendable {
   
   public struct Options<S: Scheduler> {
+
     public enum SchedulingStrategy {
       /// The time the publisher should wait before publishing an element.
       case debounce(Double)
@@ -85,26 +87,6 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
         .eraseToAnyPublisher()
     }
 
-    bind(objectWillChange: objectWillChange, propertyDidChange: propertyDidChange)
-  }
-  
-  public init(
-    object: Binding<T>,
-    objectLock: Locking = UnfairLock()
-  ) {
-    self.object = object
-    self.objectLock = objectLock
-    
-    let objectWillChange: AnyPublisher = objectDidChange.eraseToAnyPublisher()
-    let propertyDidChange: AnyPublisher = propertyDidChange.eraseToAnyPublisher()
-    bind(objectWillChange: objectWillChange, propertyDidChange: propertyDidChange)
-  }
-  
-  /// Initialize the publisher bindings.
-  private func bind(
-    objectWillChange: AnyPublisher<Void, Never>,
-    propertyDidChange: AnyPublisher<AnyPropertyChangeEvent, Never>
-  ) {
     subscriptions.insert(propertyDidChange.sink { [weak self] in
       self?.objectDidChange.send()
       let property = $0.debugLabel != nil ? ".\($0.debugLabel!)" : "*"
@@ -116,8 +98,18 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     })
   }
   
+  convenience public init(
+    object: Binding<T>,
+    objectLock: Locking = UnfairLock()
+  ) {
+    self.init(
+      object: object,
+      objectLock: objectLock,
+      options: Options(scheduler: RunLoop.main, schedulingStrategy: .none))
+  }
+  
   /// Notifies the subscribers for the wrapped object changes.
-  open func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
+  private func didSetValue<V>(keyPath: KeyPath<T, V>, value: V) {
     propertyDidChange.send(AnyPropertyChangeEvent(
       object: object.wrappedValue,
       keyPath: keyPath,
@@ -132,7 +124,7 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
   }
   
   /// Sets a new value for the property at the given keypath in the wrapped object.
-  public func set<V>(keyPath: WritableKeyPath<T, V>, value: V, label: String = #function) {
+  public func set<V>(keyPath: WritableKeyPath<T, V>, value: V, signpost: String = #function) {
     let oldValue = objectLock.withLock { () -> V in 
       let oldValue = object.wrappedValue[keyPath: keyPath]
       object.wrappedValue[keyPath: keyPath] = value
@@ -140,23 +132,28 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
     }
     let keyPathReadableFormat = keyPath.readableFormat ?? "unknown"
     let valueChangeFormat = "\(String(describing: oldValue)) ⟶ \(value)"
-    logger.info("set @ [\(label)] .\(keyPathReadableFormat) = { \(valueChangeFormat) }")
+    logger.info("set @ [\(signpost)] .\(keyPathReadableFormat) = { \(valueChangeFormat) }")
     didSetValue(keyPath: keyPath, value: value)
   }
   
   /// Perfom a batch update to the wrapped object.
-  public func mutate(_ mutation: (inout T) -> Void, label: String = #function) {
-    objectLock.withLock {
-      mutation(&object.wrappedValue)
+  /// The changes applied in the `update` closure are atomic in respect of this store's
+  /// wrapped object and a single `objectWillChange` event is being published after the update has
+  /// been applied.
+  public func performBatchUpdate(
+    _ update: (inout T) async -> Void,
+    signpost: String = #function
+  ) async {
+    await objectLock.withLock {
+      await update(&object.wrappedValue)
     }
-    logger.info("mutate @ [\(label)]")
+    logger.info("performBatchUpdate @ [\(signpost)]")
     objectDidChange.send()
   }
   
   /// Returns a binding to one of the properties of the wrapped object.
-  ///
-  /// - Note: The returned binding can itself be used as the argument for a new
-  /// `ObservableStore` instance.
+  /// The returned binding can itself be used as the argument for a new store object or can simply
+  /// be used inside a SwiftUI view.
   public func binding<V>(keyPath: WritableKeyPath<T, V>) -> Binding<V> {
     Binding(
       get: { self.get(keyPath: keyPath) },
@@ -169,42 +166,44 @@ open class ObservableStore<T>: ObservableObject, PropertyObservableObject, Unche
 
   public subscript<V>(dynamicMember keyPath: WritableKeyPath<T, V>) -> V {
     get { get(keyPath: keyPath) }
-    set { set(keyPath: keyPath, value: newValue, label: "dynamic_member") }
+    set { set(keyPath: keyPath, value: newValue, signpost: "dynamic_member") }
   }
 }
 
 // MARK: - Extensions
 
-extension ObservableStore: Equatable where T: Equatable {
-  public static func == (lhs: ObservableStore<T>, rhs: ObservableStore<T>) -> Bool {
+extension Store: Equatable where T: Equatable {
+  public static func == (lhs: Store<T>, rhs: Store<T>) -> Bool {
     lhs.object.wrappedValue == rhs.object.wrappedValue
   }
 }
 
-extension ObservableStore: Hashable where T: Hashable {
+extension Store: Hashable where T: Hashable {
   /// Hashes the essential components of this value by feeding them into the given hasher.
   public func hash(into hasher: inout Hasher) {
     object.wrappedValue.hash(into: &hasher)
   }
 }
 
-extension ObservableStore: Identifiable where T: Identifiable {
+extension Store: Identifiable where T: Identifiable {
   /// The stable identity of the entity associated with this instance.
   public var id: T.ID { object.wrappedValue.id }
 }
 
-extension ObservableStore where T: PropertyObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
-  func trampolinePropertyObservablePublisher() {
+//MARK: - Trampoline Publishers
+
+extension Store where T: PropertyObservableObject {
+  /// Forwards `ObservableObject.objectWillChangeSubscriber` to this proxy.
+  public func trampolinePropertyObservablePublisher() {
     objectSubscriptions.insert(object.wrappedValue.propertyDidChange.sink { [weak self] change in
       self?.propertyDidChange.send(change)
     })
   }
 }
 
-extension ObservableStore where T: ObservableObject {
-  /// Forwards the `ObservableObject.objectWillChangeSubscriber` to this proxy.
-  func trampolineObservableObjectPublisher() {
+extension Store where T: ObservableObject {
+  /// Forwards `ObservableObject.objectWillChangeSubscriber` to this proxy.
+  public func trampolineObservableObjectPublisher() {
     objectSubscriptions.insert(object.wrappedValue.objectWillChange.sink { [weak self] _ in
       guard let self = self else { return }
       self.objectDidChange.send()

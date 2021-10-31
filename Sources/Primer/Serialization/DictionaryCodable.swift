@@ -515,7 +515,11 @@ extension DictionaryDecoder {
 
     func decodeNil(
       forKey key: Key
-    ) throws -> Bool { decoder.notFound(key: key) }
+    ) throws -> Bool {
+      // TODO: Verify, this broke in Xcode13b2.
+      // decoder.notFound(key: key)
+      return true
+    }
 
     func decode(
       _ type: Bool.Type,
